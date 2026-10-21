@@ -50,6 +50,15 @@ h2{font-size:clamp(26px,6vw,36px);font-weight:800;color:var(--gold)}
 .stats span{font-size:12px;color:var(--dim)}
 .icons{margin-top:12px;font-size:22px;letter-spacing:3px}
 a.back{display:inline-block;margin-top:12px;color:var(--dim);font-size:13px}
+#adminBtn{display:none}
+#admin{position:fixed;top:100px;right:10px;width:min(300px,calc(100vw - 32px));max-height:calc(100vh - 116px);overflow:auto;background:var(--panel);border:1px solid #ffffff33;border-radius:14px;padding:10px 12px;z-index:3;display:none;font-size:14px;touch-action:pan-y}
+#admin h3{font-size:14px;color:var(--gold);margin:12px 0 4px}
+#admin .ahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+#admin .abtns{display:flex;flex-wrap:wrap;gap:6px}
+#admin .arow{display:flex;align-items:center;gap:6px;padding:2px 0}
+#admin .arow .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#admin button{border:1px solid #ffffff33;background:#ffffff14;border-radius:8px;padding:3px 10px;cursor:pointer;font-size:13px}
+#admin button.on{background:#2e7d32;border-color:#66bb6a}
 #banner{position:fixed;top:28%;left:0;right:0;text-align:center;font-size:clamp(22px,5vw,36px);font-weight:800;color:var(--gold);text-shadow:0 3px 8px #000;pointer-events:none;opacity:0;transition:opacity .3s;padding:0 16px;z-index:4}
 </style>
 </head>
@@ -61,15 +70,18 @@ a.back{display:inline-block;margin-top:12px;color:var(--dim);font-size:13px}
   <div id="slots"><div class="row" id="wslots"></div><div class="row" id="pslots"></div></div>
   <div id="timer">00:00</div>
   <div id="kills">💀 0</div>
-  <div id="btns"><button id="muteBtn" title="เสียง">🔊</button><button id="pauseBtn" title="พักเกม">⏸</button></div>
+  <div id="btns"><button id="adminBtn" title="แผงแอดมิน">🛠</button><button id="muteBtn" title="เสียง">🔊</button><button id="pauseBtn" title="พักเกม">⏸</button></div>
 </div>
 <div id="banner"></div>
+<div id="admin"></div>
 
 <div id="menu" class="ov" style="display:grid"><div class="box">
   <div class="logo">Wizard Royale</div>
   <h1>Survivors</h1>
   <p class="sub">เวทมนตร์ร่ายเองอัตโนมัติ แค่เดินหลบ เก็บคริสตัล อัปเลเวล แล้วรอดให้ถึงนาทีที่ 10 เพื่อโค่นราชาปีศาจ</p>
   <div class="cards" id="chars"></div>
+  <div class="btnrow"><button class="big alt" id="testBtn">🧪 ห้องทดสอบ: ปิด</button></div>
+  <p class="hint" id="testHint" style="display:none">เปิดห้องทดสอบแล้ว เลือกจอมเวทเพื่อเริ่ม · ในเกมกดปุ่ม 🛠 เพื่อเปิดแผงแอดมิน (อมตะ อัปเวท อัปของวิเศษ) · ไม่บันทึกสถิติ</p>
   <p class="hint">✨ อัปเวท 2 อันจนเลเวลตัน แล้วผสมเป็นเวทใหม่ได้ (15 แบบ)</p>
   <p class="hint">เดิน: WASD / ปุ่มลูกศร · มือถือ: แตะค้างแล้วลาก · พักเกม: P / Esc</p>
   <p class="best" id="best"></p>
@@ -455,12 +467,13 @@ function applyStats() {
   p.armor = L('armor');
   p.xpMul = 1 + 0.1 * L('tome');
   p.amount = L('echo');
+  p.hp = Math.min(p.hp, p.maxHp);
 }
 
 function startGame(ch) {
   S = {
     char: ch, t: 0, kills: 0, level: 1, xp: 0, xpNext: xpFor(1), pending: 0,
-    running: true, paused: false, modal: false, over: false,
+    running: true, paused: false, modal: false, over: false, test: testMode, god: false,
     p: { x: 0, y: 0, r: 14, hp: 0, maxHp: 0, iframe: 0, face: 1, dx: 1, dy: 0, walk: 0 },
     w: {}, pass: {}, enemies: [], shots: [], eb: [], gems: [], parts: [], texts: [], fx: [], orbs: [],
     auraR: 0, spawnAcc: 0, nextSwarm: 60, shake: 0, hurtFlash: 0,
@@ -470,9 +483,10 @@ function startGame(ch) {
   joy = null; hudCache = {};
   ['menu', 'end', 'pause', 'lvl'].forEach(hide);
   $('hud').style.display = 'block';
+  $('adminBtn').style.display = S.test ? 'inline-block' : 'none'; $('admin').style.display = 'none';
   updateSlots();
   for (let i = 0; i < 8; i++) spawn('slime');
-  banner('รอดให้ถึง 10:00 แล้วโค่นราชาปีศาจ!');
+  banner(S.test ? '🧪 ห้องทดสอบ · กด 🛠 เพื่อเปิดแผงแอดมิน' : 'รอดให้ถึง 10:00 แล้วโค่นราชาปีศาจ!');
 }
 
 /* ---------------- spatial grid */
@@ -605,7 +619,7 @@ function kill(e) {
   else if (r < .008) S.gems.push({ k: 'mag', x: e.x, y: e.y });
 }
 function hitPlayer(dmg) {
-  const p = S.p; if (p.iframe > 0 || S.over || S.won) return;
+  const p = S.p; if (p.iframe > 0 || S.over || S.won || S.god) return;
   const d = Math.max(1, Math.round(dmg - p.armor));
   p.hp -= d; p.iframe = .4; S.shake = Math.max(S.shake, .15); S.hurtFlash = .25;
   addText(p.x, p.y - 22, d, '#ff5d73');
@@ -860,7 +874,7 @@ function draw() {
   ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(p.x, p.y + 17, 13, 5, 0, 0, TAU); ctx.fill();
   if (!(p.iframe > 0 && Math.floor(S.t * 20) % 2)) drawSpr(S.char.i, p.x, p.y + Math.sin(p.walk * 14) * 1.5, 42, p.face < 0);
   const hw = 36; ctx.fillStyle = '#000b'; ctx.fillRect(p.x - hw / 2, p.y + 25, hw, 5);
-  ctx.fillStyle = p.hp / p.maxHp < .3 ? '#ff4d6d' : '#ff7a8a'; ctx.fillRect(p.x - hw / 2, p.y + 25, hw * Math.max(0, p.hp / p.maxHp), 5);
+  ctx.fillStyle = S.god ? '#ffd166' : p.hp / p.maxHp < .3 ? '#ff4d6d' : '#ff7a8a'; ctx.fillRect(p.x - hw / 2, p.y + 25, hw * Math.max(0, p.hp / p.maxHp), 5);
   for (const o of S.orbs) {
     if (o.icon) { drawSpr(o.icon, o.x, o.y, o.r * 2.6, false, o.icon === '🪄' ? o.rot : 0); continue; }
     ctx.globalAlpha = .3; ctx.fillStyle = o.c || '#b48cff'; ctx.beginPath(); ctx.arc(o.x, o.y, o.r * 1.8, 0, TAU); ctx.fill();
@@ -944,7 +958,47 @@ const lvlMark = (k, w) => WEAP[k].fused ? '★' : w.lvl >= WEAP[k].max ? 'MAX' :
 function updateSlots() {
   $('wslots').innerHTML = Object.entries(S.w).map(([k, w]) => `<div class="slot" title="${WEAP[k].n}">${WEAP[k].i}<b>${lvlMark(k, w)}</b></div>`).join('');
   $('pslots').innerHTML = Object.entries(S.pass).map(([k, l]) => `<div class="slot" title="${PASS[k].n}">${PASS[k].i}<b>${l}</b></div>`).join('');
+  if (S.test && $('admin').style.display === 'block') renderAdmin();
 }
+
+/* ---------------- test room: admin panel (only when S.test) */
+let testMode = false;
+function renderAdmin() {
+  const base = Object.keys(WEAP).filter(k => !WEAP[k].fused), fused = Object.keys(WEAP).filter(k => WEAP[k].fused);
+  const row = (kind, k, d, l) => `<div class="arow"><span>${d.i}</span><span class="nm">${d.n}</span><b>${l}/${d.max}</b><button data-a="${kind}-" data-k="${k}">−</button><button data-a="${kind}+" data-k="${k}">+</button></div>`;
+  $('admin').innerHTML = `<div class="ahead"><b>🛠 แผงแอดมิน</b><button data-a="close">✕</button></div>
+    <div class="abtns"><button data-a="god" class="${S.god ? 'on' : ''}">อมตะ: ${S.god ? 'เปิด' : 'ปิด'}</button><button data-a="heal">ฟื้น HP เต็ม</button><button data-a="lvl">เลเวลอัป +1</button><button data-a="clear">ล้างศัตรู (ไม่รวมบอส)</button><button data-a="time">เวลา +1 นาที</button><button data-a="dragon">เรียกมังกรเพลิง</button><button data-a="demon">เรียกราชาปีศาจ</button></div>
+    <h3>เวท</h3>${base.map(k => row('w', k, WEAP[k], S.w[k] ? S.w[k].lvl : 0)).join('')}
+    <h3>เวทผสม</h3>${fused.map(k => `<div class="arow"><span>${WEAP[k].i}</span><span class="nm">${WEAP[k].n}</span><button data-a="f" data-k="${k}" class="${S.w[k] ? 'on' : ''}">${S.w[k] ? 'มีแล้ว' : 'เพิ่ม'}</button></div>`).join('')}
+    <h3>ของวิเศษ</h3>${Object.keys(PASS).map(k => row('p', k, PASS[k], S.pass[k] || 0)).join('')}`;
+}
+function adminDo(a, k) {
+  const p = S.p;
+  if (a === 'close') { $('admin').style.display = 'none'; return; }
+  if (a === 'god') S.god = !S.god;
+  else if (a === 'heal') p.hp = p.maxHp;
+  else if (a === 'lvl') { S.pending++; openLevelUp(); }
+  else if (a === 'clear') { for (const e of S.enemies) if (!e.dead && !e.d.boss) kill(e); }
+  else if (a === 'time') S.t += 60;
+  else if (a === 'dragon' || a === 'demon') { spawn(a); banner('⚠ ' + ENEMY[a].name + ' ⚠'); }
+  else if (a === 'w+') { if (!S.w[k]) S.w[k] = { lvl: 1, cd: .3 }; else if (S.w[k].lvl < WEAP[k].max) S.w[k].lvl++; }
+  else if (a === 'w-') { if (S.w[k] && --S.w[k].lvl <= 0) delete S.w[k]; }
+  else if (a === 'f') { if (S.w[k]) delete S.w[k]; else S.w[k] = { lvl: 1, cd: .3 }; }
+  else if (a === 'p+') { if ((S.pass[k] || 0) < PASS[k].max) S.pass[k] = (S.pass[k] || 0) + 1; applyStats(); }
+  else if (a === 'p-') { if (S.pass[k] && --S.pass[k] <= 0) delete S.pass[k]; applyStats(); }
+  updateSlots(); renderAdmin();
+}
+$('admin').onclick = e => { const b = e.target.closest('button'); if (b && S && S.test) adminDo(b.dataset.a, b.dataset.k); };
+$('adminBtn').onclick = () => {
+  const box = $('admin'), open = box.style.display !== 'block';
+  box.style.display = open ? 'block' : 'none'; if (open) renderAdmin();
+};
+$('testBtn').onclick = () => {
+  testMode = !testMode;
+  $('testBtn').textContent = '🧪 ห้องทดสอบ: ' + (testMode ? 'เปิด' : 'ปิด');
+  $('testBtn').classList.toggle('alt', !testMode);
+  $('testHint').style.display = testMode ? 'block' : 'none';
+};
 function show(id) { $(id).style.display = 'grid'; }
 function hide(id) { $(id).style.display = 'none'; }
 let bannerT = 0;
@@ -960,11 +1014,11 @@ function loadBest() { try { return JSON.parse(localStorage.getItem('wr-survivors
 function endGame(win) {
   if (!S || S.over) return;
   S.over = true; S.running = false; S.modal = false; joy = null;
-  ['lvl', 'pause'].forEach(hide); $('hud').style.display = 'none';
+  ['lvl', 'pause', 'admin'].forEach(hide); $('hud').style.display = 'none';
   const best = loadBest(), score = (win ? 1e6 : 0) + S.t;
-  const isBest = !best || score > best.score;
+  const isBest = !S.test && (!best || score > best.score); // the test room never sets records
   if (isBest) try { localStorage.setItem('wr-survivors-best', JSON.stringify({ score, t: S.t, l: S.level, k: S.kills, win })); } catch { }
-  $('endTitle').textContent = win ? '🏆 คุณคือจอมเวทผู้ยิ่งใหญ่!' : '💀 จอมเวทล้มลงแล้ว';
+  $('endTitle').textContent = (S.test ? '🧪 ' : '') + (win ? '🏆 คุณคือจอมเวทผู้ยิ่งใหญ่!' : '💀 จอมเวทล้มลงแล้ว');
   $('endStats').innerHTML = statsHTML() + (isBest ? '<p class="best">✨ สถิติใหม่!</p>' : '');
   show('end'); sfx(win ? 'chest' : 'hurt');
 }
@@ -974,7 +1028,7 @@ function togglePause() {
   if (S.paused) { $('pstats').innerHTML = statsHTML(); show('pause'); } else hide('pause');
 }
 function showMenu() {
-  S = null; $('hud').style.display = 'none'; ['end', 'pause', 'lvl'].forEach(hide);
+  S = null; $('hud').style.display = 'none'; ['end', 'pause', 'lvl', 'admin'].forEach(hide);
   const b = loadBest();
   $('best').textContent = b ? `สถิติดีที่สุด: ${b.win ? '🏆 ชนะ · ' : ''}${fmt(b.t)} · Lv ${b.l} · สังหาร ${b.k.toLocaleString()}` : '';
   show('menu');
