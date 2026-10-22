@@ -173,7 +173,7 @@ const ENEMY = {
 /* ---------------- spell helpers (shared by base and fused spells) */
 function shootMissile(x, y, a, dmg, o = {}) {
   const sp = o.sp || 460;
-  S.shots.push({ k: 'missile', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: (o.r || 7) * S.p.areaMul, dmg, pierce: o.pierce || 1, life: o.life || 1.5, hit: new Set(), c: o.c, chill: o.chill, onHit: o.onHit });
+  S.shots.push({ k: 'missile', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: (o.r || 7) * S.p.areaMul, dmg, pierce: o.pierce || 1, life: o.life || 1.5, hit: new Set(), c: o.c, chill: o.chill, onHit: o.onHit, onEnd: o.onEnd, icon: o.icon, spin: o.spin, rot: a });
 }
 function throwBoom(a, dmg, range, r, o = {}) {
   const p = S.p, sp = 560;
@@ -181,9 +181,10 @@ function throwBoom(a, dmg, range, r, o = {}) {
 }
 // a cluster of 3 orbs spinning fast around a point that flies straight from (x, y)
 function shootSpinner(x, y, a, dmg, o = {}) {
-  const sp = o.sp || 300, m = S.p.areaMul;
+  const sp = o.sp ?? 300, m = S.p.areaMul;
   S.shots.push({ k: 'spinner', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: a, R: 20 * m, r: 9 * m, dmg, life: o.life || 1.8, hits: new Map(), c: o.c });
 }
+function later(t, run) { S.shots.push({ k: 'delay', t, run }); }
 function dropMeteor(x, y, R, dmg, delay, o = {}) { S.shots.push({ k: 'meteor', x, y, t: delay, T: delay, R, dmg, ...o }); }
 function explode(x, y, R, dmg, c = '255,140,60', o = {}) {
   query(x, y, R + 50, e => {
@@ -193,17 +194,20 @@ function explode(x, y, R, dmg, c = '255,140,60', o = {}) {
   for (let i = 0; i < 12; i++) particle(x, y, rnd(-160, 160), rnd(-160, 160), rnd(.2, .5), o.pc || '#ffb347', rnd(2, 5));
   S.shake = Math.max(S.shake, .1); sfx('boom');
 }
-// lightning from (x0, y0) into `first`, then jumping to the nearest enemy not hit yet
+// lightning from (x0, y0) into `first`, then jumping to the nearest enemy not hit yet; returns the enemies hit
 function zap(x0, y0, first, jumps, dmg, R, o = {}) {
-  let cur = first; const done = new Set(o.skip ? [o.skip] : []), pts = [x0, y0];
+  let cur = first; const done = new Set(o.skip ? [o.skip] : []), pts = [x0, y0], hit = [];
   for (let j = 0; j < jumps && cur; j++) {
-    done.add(cur); pts.push(cur.x, cur.y); hurt(cur, dmg, 0); if (o.chill) chill(cur, o.chill);
+    done.add(cur); hit.push(cur); pts.push(cur.x, cur.y); hurt(cur, dmg, 0); if (o.chill) chill(cur, o.chill); if (o.onHit) o.onHit(cur);
     let best = null, bd = R * R; const c = cur;
     query(c.x, c.y, R, q => { if (done.has(q) || q.dead) return; const d = (q.x - c.x) ** 2 + (q.y - c.y) ** 2; if (d < bd) { bd = d; best = q; } });
     cur = best;
   }
   if (pts.length > 2) S.fx.push({ k: 'bolt', pts, life: .25, max: .25 });
+  return hit;
 }
+// lightning striking down from the sky onto e
+const skyZap = (e, jumps, dmg, R, o) => zap(e.x + rnd(-30, 30), e.y - H * 0.6, e, jumps, dmg, R, o);
 function nearestTo(x, y, R, skip) {
   let best = null, bd = R * R;
   query(x, y, R, e => { if (e === skip) return; const d = (e.x - x) ** 2 + (e.y - y) ** 2; if (d < bd) { bd = d; best = e; } });
@@ -299,11 +303,12 @@ const WEAP = {
   },
 };
 
-// Fused spells: two max-level spells become one (any pair of the 6 above, 15 in all).
+// Fused spells: two max-level spells become one. Only pairs with the wizard's own spell fuse, and the result
+// keeps that spell's style (`host`): each wizard has 5, 30 in all.
 // They have no levels; `cd` is used by fire(), tick() spells time themselves with every().
 const FUSED = {
   comet: {
-    n: 'ดาวหางวน', i: '🌠', from: ['missile', 'orbit'], cd: .8, ds: 'ยิงกลุ่มลูกแก้วหมุนติ้ว 5 ลูกพุ่งตรงออกไปรอบทิศทุก 0.8 วินาที ทะลุทุกตัวที่ขวางทาง',
+    host: 'missile', n: 'ดาวหางหมุนติ้ว', i: '🌠', from: ['missile', 'orbit'], cd: .8, ds: 'ยิงกลุ่มลูกแก้วหมุนติ้ว 5 ลูกพุ่งตรงออกไปรอบทิศทุก 0.8 วินาที ทะลุทุกตัวที่ขวางทาง',
     fire(w) {
       const p = S.p, n = 5 + p.amount; w.spin = (w.spin || 0) + .35;
       for (let i = 0; i < n; i++) shootSpinner(p.x, p.y, w.spin + i * TAU / n, 30 * p.dmgMul, { c: '#ffe08a' });
@@ -311,7 +316,7 @@ const FUSED = {
     },
   },
   thunderbolt: {
-    n: 'ลูกศรอัสนี', i: '🌩️', from: ['chain', 'missile'], cd: .55, ds: 'ยิงลูกศรสายฟ้า 3 ลูก ทะลุ 3 ตัว ทุกตัวที่โดนปล่อยฟ้าผ่ากระโดดต่อ 3 ตัว',
+    host: 'missile', n: 'ลูกศรอัสนี', i: '🌩️', from: ['chain', 'missile'], cd: .55, ds: 'ยิงลูกศรสายฟ้า 3 ลูก ทะลุ 3 ตัว ทุกตัวที่โดนปล่อยฟ้าผ่ากระโดดต่อ 3 ตัว',
     fire(w) {
       const p = S.p, n = 3 + p.amount, ts = nearest(n, 700); if (!ts.length) return false;
       for (let i = 0; i < n; i++) {
@@ -324,7 +329,7 @@ const FUSED = {
     },
   },
   frostlance: {
-    n: 'หอกน้ำแข็ง', i: '🧊', from: ['aura', 'missile'], ds: 'วงน้ำแข็งกว้าง และยิงหอกน้ำแข็ง 8 ทิศ ทะลุ 3 ตัว แช่แข็งศัตรูให้ช้าลงครึ่งหนึ่ง',
+    host: 'aura', n: 'หอกน้ำแข็ง', i: '🧊', from: ['aura', 'missile'], ds: 'วงน้ำแข็งกว้าง และยิงหอกน้ำแข็ง 8 ทิศ ทะลุ 3 ตัว แช่แข็งศัตรูให้ช้าลงครึ่งหนึ่ง',
     tick(w, st, dt) {
       const p = S.p; auraTick(w, 110 * p.areaMul, 14 * p.dmgMul, .5, dt);
       if (every(w, 'ft', .8, dt)) {
@@ -335,14 +340,14 @@ const FUSED = {
     },
   },
   starfall: {
-    n: 'ฝนดาวตก', i: '🌌', from: ['meteor', 'missile'], cd: .35, ds: 'ดาวตกลูกเล็กพรั่งพรูใส่ศัตรูบนจอ 2 ลูกทุก 0.35 วินาที',
+    host: 'meteor', n: 'ฝนดาวตก', i: '🌌', from: ['meteor', 'missile'], cd: .35, ds: 'ดาวตกลูกเล็กพรั่งพรูใส่ศัตรูบนจอ 2 ลูกทุก 0.35 วินาที',
     fire(w) {
       const p = S.p, vis = visibleNear(); if (!vis.length) return false;
       for (let i = 0; i < 2 + p.amount; i++) { const e = vis[i % vis.length]; dropMeteor(e.x + rnd(-15, 15), e.y + rnd(-15, 15), 50 * p.areaMul, 45 * p.dmgMul, .45, { icon: '🌠', c: '180,160,255', pc: '#c9b8ff' }); }
     },
   },
   stormblade: {
-    n: 'ใบมีดพายุ', i: '🗡️', from: ['boom', 'missile'], cd: 1.3, ds: 'ขว้างใบมีดหมุน 3 เล่ม ระหว่างบินยิงลูกศรเวทกระจายออกรอบตัว',
+    host: 'boom', n: 'ใบมีดพายุ', i: '🗡️', from: ['boom', 'missile'], cd: 1.3, ds: 'ขว้างใบมีดหมุน 3 เล่ม ระหว่างบินยิงลูกศรเวทกระจายออกรอบตัว',
     fire(w) {
       const p = S.p, n = 3 + p.amount, a0 = aimAngle();
       for (let i = 0; i < n; i++) throwBoom(a0 + (i - (n - 1) / 2) * .5, 30 * p.dmgMul, 300, 16, { icon: '🗡️', fireT: .25, fire: s => shootMissile(s.x, s.y, s.rot, 18 * p.dmgMul, { c: '#e0e0ff', life: .8 }) });
@@ -350,7 +355,7 @@ const FUSED = {
     },
   },
   stormring: {
-    n: 'วงแหวนสายฟ้า', i: '💫', from: ['chain', 'orbit'], ds: 'ลูกแก้ว 4 ลูกหมุนรอบตัว แต่ละลูกยิงฟ้าผ่าใส่ศัตรูใกล้ ๆ ทุกครึ่งวินาที',
+    host: 'orbit', n: 'วงแหวนสายฟ้า', i: '💫', from: ['chain', 'orbit'], ds: 'ลูกแก้ว 4 ลูกหมุนรอบตัว แต่ละลูกยิงฟ้าผ่าใส่ศัตรูใกล้ ๆ ทุกครึ่งวินาที',
     tick(w, st, dt) {
       const p = S.p, pos = orbTick(w, 'stormring', 4 + p.amount, 100 * p.areaMul, 12 * p.areaMul, 3, 26 * p.dmgMul, dt, { c: '#9be7ff' });
       if (every(w, 'ft', .5, dt)) {
@@ -361,7 +366,7 @@ const FUSED = {
     },
   },
   blizzard: {
-    n: 'พายุหิมะ', i: '🌨️', from: ['aura', 'orbit'], ds: 'วงน้ำแข็งกว้างพิเศษ มีเกล็ดน้ำแข็ง 6 ชิ้นหมุนวนแช่แข็งศัตรู',
+    host: 'aura', n: 'พายุหิมะ', i: '🌨️', from: ['aura', 'orbit'], ds: 'วงน้ำแข็งกว้างพิเศษ มีเกล็ดน้ำแข็ง 6 ชิ้นหมุนวนแช่แข็งศัตรู',
     tick(w, st, dt) {
       const p = S.p, R = 130 * p.areaMul;
       auraTick(w, R, 16 * p.dmgMul, .45, dt);
@@ -369,21 +374,21 @@ const FUSED = {
     },
   },
   moonfall: {
-    n: 'จันทราถล่ม', i: '🌕', from: ['meteor', 'orbit'], ds: 'ดวงจันทร์ 3 ดวงหมุนช้า ๆ รอบตัว และระเบิดเป็นวงทุก 1.2 วินาที',
+    host: 'orbit', n: 'จันทราถล่ม', i: '🌕', from: ['meteor', 'orbit'], ds: 'ดวงจันทร์ 3 ดวงหมุนช้า ๆ รอบตัว และระเบิดเป็นวงทุก 1.2 วินาที',
     tick(w, st, dt) {
       const p = S.p, pos = orbTick(w, 'moonfall', 3 + p.amount, 120 * p.areaMul, 16 * p.areaMul, 1.5, 30 * p.dmgMul, dt, { icon: '🌕' });
       if (every(w, 'ft', 1.2, dt)) for (const [x, y] of pos) explode(x, y, 70 * p.areaMul, 60 * p.dmgMul, '255,230,150', { pc: '#fff2b3' });
     },
   },
   bladering: {
-    n: 'จักรไม้กายสิทธิ์', i: '⚙️', from: ['boom', 'orbit'], ds: 'ไม้กายสิทธิ์ 4 อันหมุนรอบตัว วงหดเข้าแล้วขยายออกไกลถึง 240',
+    host: 'orbit', n: 'จักรไม้กายสิทธิ์', i: '⚙️', from: ['boom', 'orbit'], ds: 'ไม้กายสิทธิ์ 4 อันหมุนรอบตัว วงหดเข้าแล้วขยายออกไกลถึง 240',
     tick(w, st, dt) {
       const p = S.p, R = (155 + 85 * Math.sin(S.t * 2)) * p.areaMul;
       orbTick(w, 'bladering', 4 + p.amount, R, 15 * p.areaMul, 4, 32 * p.dmgMul, dt, { icon: '🪄', hitCd: .3 });
     },
   },
   thunderstorm: {
-    n: 'พายุฟ้าคำราม', i: '⛈️', from: ['aura', 'chain'], ds: 'วงพายุรอบตัว ฟ้าผ่าศัตรูในวง 4 ตัวพร้อมกันทุก 0.45 วินาที',
+    host: 'aura', n: 'พายุฟ้าคำราม', i: '⛈️', from: ['aura', 'chain'], ds: 'วงพายุรอบตัว ฟ้าผ่าศัตรูในวง 4 ตัวพร้อมกันทุก 0.45 วินาที',
     tick(w, st, dt) {
       const p = S.p, R = 140 * p.areaMul; auraTick(w, R, 8 * p.dmgMul, .6, dt);
       if (every(w, 'ft', .45, dt)) {
@@ -394,7 +399,7 @@ const FUSED = {
     },
   },
   skyfire: {
-    n: 'อุกกาบาตอัสนี', i: '🌋', from: ['chain', 'meteor'], cd: 1.4, ds: 'อุกกาบาตลูกใหญ่ 3 ลูก ระเบิดแล้วปล่อยสายฟ้ากระโดดต่ออีก 5 ตัว',
+    host: 'meteor', n: 'อุกกาบาตอัสนี', i: '🌋', from: ['chain', 'meteor'], cd: 1.4, ds: 'อุกกาบาตลูกใหญ่ 3 ลูก ระเบิดแล้วปล่อยสายฟ้ากระโดดต่ออีก 5 ตัว',
     fire(w) {
       const p = S.p, vis = visibleNear(); if (!vis.length) return false;
       for (let i = 0; i < 3 + p.amount; i++) {
@@ -404,7 +409,7 @@ const FUSED = {
     },
   },
   thunderang: {
-    n: 'ตรีศูลอัสนี', i: '🔱', from: ['boom', 'chain'], cd: 1.2, ds: 'ขว้างตรีศูล 3 อันแบบบูมเมอแรง ทุกครั้งที่โดนมีโอกาส 35% ปล่อยฟ้าผ่ากระโดด 3 ตัว',
+    host: 'boom', n: 'ตรีศูลอัสนี', i: '🔱', from: ['boom', 'chain'], cd: 1.2, ds: 'ขว้างตรีศูล 3 อันแบบบูมเมอแรง ทุกครั้งที่โดนมีโอกาส 35% ปล่อยฟ้าผ่ากระโดด 3 ตัว',
     fire(w) {
       const p = S.p, n = 3 + p.amount, a0 = aimAngle();
       for (let i = 0; i < n; i++) throwBoom(a0 + (i - (n - 1) / 2) * .5, 30 * p.dmgMul, 300, 16, {
@@ -414,14 +419,14 @@ const FUSED = {
     },
   },
   frostquake: {
-    n: 'ระเบิดเยือกแข็ง', i: '🏔️', from: ['aura', 'meteor'], ds: 'วงน้ำแข็งที่ระเบิดออกทั้งวงทุก 1.6 วินาที แช่แข็งทุกตัวที่โดน',
+    host: 'aura', n: 'ระเบิดเยือกแข็ง', i: '🏔️', from: ['aura', 'meteor'], ds: 'วงน้ำแข็งที่ระเบิดออกทั้งวงทุก 1.6 วินาที แช่แข็งทุกตัวที่โดน',
     tick(w, st, dt) {
       const p = S.p, R = 120 * p.areaMul; auraTick(w, R, 12 * p.dmgMul, .55, dt);
       if (every(w, 'ft', 1.6, dt)) explode(p.x, p.y, R * 1.15, (80 + 15 * p.amount) * p.dmgMul, '170,220,255', { chill: 2.5, pc: '#d6f3ff', kb: 300 });
     },
   },
   frostwind: {
-    n: 'ลมหนาวหมุนวน', i: '🌪️', from: ['aura', 'boom'], ds: 'วงน้ำแข็ง และขว้างพายุหมุนลูกใหญ่ 2 ลูกทุกวินาที แช่แข็งทุกตัวที่ผ่าน',
+    host: 'aura', n: 'ลมหนาวหมุนวน', i: '🌪️', from: ['aura', 'boom'], ds: 'วงน้ำแข็ง และขว้างพายุหมุนลูกใหญ่ 2 ลูกทุกวินาที แช่แข็งทุกตัวที่ผ่าน',
     tick(w, st, dt) {
       const p = S.p; auraTick(w, 110 * p.areaMul, 12 * p.dmgMul, .6, dt);
       if (every(w, 'ft', 1, dt)) {
@@ -432,16 +437,168 @@ const FUSED = {
     },
   },
   meteorhammer: {
-    n: 'ค้อนดาวตก', i: '🔨', from: ['boom', 'meteor'], cd: 1.4, ds: 'ขว้างค้อน 2 อัน ระเบิดเป็นวงตอนกลับตัวและตอนกลับถึงมือ',
+    host: 'boom', n: 'ค้อนดาวตก', i: '🔨', from: ['boom', 'meteor'], cd: 1.4, ds: 'ขว้างค้อน 2 อัน ระเบิดเป็นวงตอนกลับตัวและตอนกลับถึงมือ',
     fire(w) {
       const p = S.p, n = 2 + p.amount, a0 = aimAngle(), bang = s => explode(s.x, s.y, 80 * p.areaMul, 70 * p.dmgMul);
       for (let i = 0; i < n; i++) throwBoom(a0 + (i - (n - 1) / 2) * .6, 30 * p.dmgMul, 280, 18, { icon: '🔨', onTurn: bang, onEnd: bang });
       sfx('whoosh');
     },
   },
+  /* จอมเวทเปลวไฟ: ยิงออกจากตัว */
+  frostarrow: {
+    host: 'missile', n: 'ลูกศรเยือกแข็ง', i: '🏹', from: ['missile', 'aura'], cd: .6, ds: 'ยิงลูกศรน้ำแข็ง 4 ลูกใส่ศัตรูที่ใกล้ที่สุด ทะลุ 3 ตัว แช่แข็งทุกตัวที่โดน และแตกเป็นไอเย็นตอนหมดแรง',
+    fire(w) {
+      const p = S.p, n = 4 + p.amount, ts = nearest(n, 700); if (!ts.length) return false;
+      const burst = s => explode(s.x, s.y, 55 * p.areaMul, 25 * p.dmgMul, '170,220,255', { chill: 2, pc: '#d6f3ff', kb: 60 });
+      for (let i = 0; i < n; i++) {
+        const e = ts[i % ts.length];
+        shootMissile(p.x, p.y, Math.atan2(e.y - p.y, e.x - p.x) + (i >= ts.length ? rnd(-.3, .3) : 0), 30 * p.dmgMul, { pierce: 3, chill: 2, c: '#bfeaff', onEnd: burst });
+      }
+      sfx('shoot');
+    },
+  },
+  fireball: {
+    host: 'missile', n: 'ลูกไฟระเบิด', i: '🔥', from: ['missile', 'meteor'], cd: 1, ds: 'ยิงลูกไฟใหญ่ 3 ลูกใส่ศัตรูที่ใกล้ที่สุด ชนแล้วระเบิดเป็นวงกว้าง',
+    fire(w) {
+      const p = S.p, n = 3 + p.amount, ts = nearest(n, 700); if (!ts.length) return false;
+      for (let i = 0; i < n; i++) {
+        const e = ts[i % ts.length];
+        shootMissile(p.x, p.y, Math.atan2(e.y - p.y, e.x - p.x) + (i >= ts.length ? rnd(-.3, .3) : 0), 20 * p.dmgMul, {
+          r: 12, sp: 380, c: '#ff9a3c', onEnd: s => explode(s.x, s.y, 75 * p.areaMul, 60 * p.dmgMul),
+        });
+      }
+      sfx('shoot');
+    },
+  },
+  bladevolley: {
+    host: 'missile', n: 'ไม้กายสิทธิ์ทะลวง', i: '🎯', from: ['missile', 'boom'], cd: .9, ds: 'ยิงไม้กายสิทธิ์หมุนติ้ว 5 อันเป็นรูปพัด ทะลุทุกตัวที่ขวางทาง',
+    fire(w) {
+      const p = S.p, n = 5 + p.amount, a0 = aimAngle();
+      for (let i = 0; i < n; i++) shootMissile(p.x, p.y, a0 + (i - (n - 1) / 2) * .22, 26 * p.dmgMul, { pierce: 99, sp: 520, life: 1.4, r: 10, icon: '🪄', spin: 1 });
+      sfx('whoosh');
+    },
+  },
+  /* จอมเวทสายฟ้า: ฟ้าผ่าลงตัวที่ใกล้ที่สุดแล้วกระโดดต่อ */
+  sparkbolt: {
+    host: 'chain', n: 'สายฟ้าประกายไฟ', i: '✨', from: ['chain', 'missile'], cd: 1, ds: 'ฟ้าผ่าศัตรูที่ใกล้ที่สุด 2 สาย กระโดดต่อ 4 ตัว ทุกตัวที่โดนแตกประกายไฟพุ่งออกไป',
+    fire(w) {
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      const spark = t => shootMissile(t.x, t.y, rnd(0, TAU), 14 * p.dmgMul, { c: '#9be7ff', life: .6, sp: 420 });
+      for (let i = 0; i < 2 + p.amount; i++) skyZap(vis[i % vis.length], 4, 34 * p.dmgMul, 150 * p.areaMul, { onHit: spark });
+      sfx('zap');
+    },
+  },
+  frostbolt: {
+    host: 'chain', n: 'สายฟ้าเยือกแข็ง', i: '🌬️', from: ['chain', 'aura'], cd: 1.1, ds: 'ฟ้าผ่าเยือกแข็ง 2 สาย กระโดดต่อ 7 ตัว ทุกตัวที่โดนถูกแช่แข็ง',
+    fire(w) {
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      for (let i = 0; i < 2 + p.amount; i++) skyZap(vis[i % vis.length], 7, 34 * p.dmgMul, 170 * p.areaMul, { chill: 2.5 });
+      sfx('zap');
+    },
+  },
+  ballspark: {
+    host: 'chain', n: 'สายฟ้าลูกบอล', i: '⚛️', from: ['chain', 'orbit'], cd: 1.3, ds: 'ฟ้าผ่าศัตรูที่ใกล้ที่สุด 3 สาย กระโดดต่อ 3 ตัว จุดที่ผ่าลงทิ้งลูกบอลสายฟ้าหมุนติ้วไว้ 1.5 วินาที',
+    fire(w) {
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      for (let i = 0; i < 3 + p.amount; i++) {
+        const e = vis[i % vis.length];
+        skyZap(e, 3, 24 * p.dmgMul, 150 * p.areaMul);
+        shootSpinner(e.x, e.y, 0, 16 * p.dmgMul, { sp: 0, life: 1.5, c: '#9be7ff' });
+      }
+      sfx('zap');
+    },
+  },
+  boltblast: {
+    host: 'chain', n: 'สายฟ้าระเบิด', i: '🎆', from: ['chain', 'meteor'], cd: 1.3, ds: 'ฟ้าผ่าศัตรูที่ใกล้ที่สุด 2 สาย กระโดดต่อ 4 ตัว ทุกตัวที่โดนระเบิดเป็นวง',
+    fire(w) {
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      const boom = t => explode(t.x, t.y, 55 * p.areaMul, 30 * p.dmgMul, '150,200,255', { pc: '#bfe8ff', kb: 120 });
+      for (let i = 0; i < 2 + p.amount; i++) skyZap(vis[i % vis.length], 4, 22 * p.dmgMul, 150 * p.areaMul, { onHit: boom });
+      sfx('zap');
+    },
+  },
+  boltecho: {
+    host: 'chain', n: 'สายฟ้าสะท้อน', i: '🔁', from: ['chain', 'boom'], cd: 1.2, ds: 'ฟ้าผ่าศัตรูที่ใกล้ที่สุด 2 สาย กระโดดต่อ 5 ตัว แล้วสะท้อนย้อนกลับมาหาคุณ ผ่าทุกตัวซ้ำอีกรอบ',
+    fire(w) {
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      for (let i = 0; i < 2 + p.amount; i++) {
+        const hit = skyZap(vis[i % vis.length], 5, 26 * p.dmgMul, 150 * p.areaMul);
+        later(.3, () => { // back along the same path to the player
+          const back = hit.filter(e => !e.dead).reverse(); if (!back.length) return;
+          const pts = []; for (const e of back) { pts.push(e.x, e.y); hurt(e, 26 * p.dmgMul, 0); }
+          pts.push(S.p.x, S.p.y); S.fx.push({ k: 'bolt', pts, life: .25, max: .25 }); sfx('zap');
+        });
+      }
+      sfx('zap');
+    },
+  },
+  /* จอมเวทดวงดาว: หมุนรอบตัว */
+  cometring: {
+    host: 'orbit', n: 'ดาวบริวาร', i: '🪐', from: ['orbit', 'missile'], ds: 'ดาวหาง 5 ดวงหมุนรอบตัว และยิงลูกศรเวทออกไปรอบทิศทุก 0.7 วินาที',
+    tick(w, st, dt) {
+      const p = S.p, pos = orbTick(w, 'cometring', 5 + p.amount, 110 * p.areaMul, 13 * p.areaMul, 3.2, 30 * p.dmgMul, dt, { c: '#ffe08a' });
+      if (every(w, 'ft', .7, dt)) { for (const [x, y, a] of pos) shootMissile(x, y, a, 30 * p.dmgMul, { pierce: 2, c: '#ffe08a' }); sfx('shoot'); }
+    },
+  },
+  frostring: {
+    host: 'orbit', n: 'วงแหวนเกล็ดน้ำแข็ง', i: '💎', from: ['orbit', 'aura'], ds: 'เกล็ดน้ำแข็งหมุนรอบตัว 2 วง วงในกับวงนอกหมุนสวนกัน แช่แข็งทุกตัวที่ชน',
+    tick(w, st, dt) {
+      const p = S.p, o = { c: '#d6f3ff', chill: 2.5 };
+      orbTick(w, 'frostin', 3 + p.amount, 80 * p.areaMul, 13 * p.areaMul, 3, 22 * p.dmgMul, dt, o);
+      orbTick(w.out = w.out || {}, 'frostout', 5 + p.amount, 150 * p.areaMul, 13 * p.areaMul, -2.2, 22 * p.dmgMul, dt, o);
+    },
+  },
+  /* จอมเวทอุกกาบาต: ตกจากฟ้าลงพื้นที่ */
+  icemeteor: {
+    host: 'meteor', n: 'อุกกาบาตน้ำแข็ง', i: '☃️', from: ['meteor', 'aura'], cd: 1.5, ds: 'อุกกาบาตน้ำแข็ง 3 ลูกถล่มศัตรูที่ใกล้ที่สุด ระเบิดแช่แข็งทุกตัวในวง',
+    fire(w) {
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      for (let i = 0; i < 3 + p.amount; i++) { const e = vis[i % vis.length]; dropMeteor(e.x + rnd(-20, 20), e.y + rnd(-20, 20), 80 * p.areaMul, 55 * p.dmgMul, .7 + i * .1, { icon: '🧊', chill: 3, c: '170,220,255', pc: '#d6f3ff' }); }
+    },
+  },
+  meteorring: {
+    host: 'meteor', n: 'วงล้อมอุกกาบาต', i: '🎇', from: ['meteor', 'orbit'], cd: 1.1, ds: 'อุกกาบาต 6 ลูกตกเป็นวงล้อมรอบตัวทุก 1.1 วินาที วงหมุนไปเรื่อย ๆ',
+    fire(w) {
+      const p = S.p, n = 6 + p.amount, R = 150 * p.areaMul; w.spin = (w.spin || 0) + .5;
+      for (let i = 0; i < n; i++) { const a = w.spin + i * TAU / n; dropMeteor(p.x + Math.cos(a) * R, p.y + Math.sin(a) * R, 60 * p.areaMul, 50 * p.dmgMul, .5 + i * .06); }
+    },
+  },
+  bouncemeteor: {
+    host: 'meteor', n: 'อุกกาบาตกระดอน', i: '🪨', from: ['meteor', 'boom'], cd: 1.5, ds: 'อุกกาบาต 2 ลูกถล่มศัตรูที่ใกล้ที่สุด แล้วกระดอนไปตกใส่ตัวอื่นอีก 2 ครั้ง',
+    fire(w) {
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      const drop = (x, y, left, delay) => dropMeteor(x, y, 65 * p.areaMul, 55 * p.dmgMul, delay, { icon: '🪨', onBoom: s => {
+        if (!left) return;
+        const far = []; query(s.x, s.y, 260, e => { const d = (e.x - s.x) ** 2 + (e.y - s.y) ** 2; if (d > 80 * 80 && d < 260 * 260) far.push(e); });
+        const t = far[Math.random() * far.length | 0], a = rnd(0, TAU);
+        drop(t ? t.x : s.x + Math.cos(a) * 150, t ? t.y : s.y + Math.sin(a) * 150, left - 1, .45);
+      } });
+      for (let i = 0; i < 2 + p.amount; i++) { const e = vis[i % vis.length]; drop(e.x, e.y, 2, .6 + i * .1); }
+    },
+  },
+  /* จอมเวทพเนจร: ขว้างออกไปแล้วกลับมา */
+  frostboom: {
+    host: 'boom', n: 'บูมเมอแรงหิมะ', i: '🥏', from: ['boom', 'aura'], cd: 1.2, ds: 'ขว้างเกล็ดหิมะยักษ์ 3 อันแบบบูมเมอแรง แช่แข็งทุกตัวที่ผ่าน และระเบิดไอเย็นตอนกลับถึงมือ',
+    fire(w) {
+      const p = S.p, n = 3 + p.amount, a0 = aimAngle(), burst = s => explode(s.x, s.y, 80 * p.areaMul, 25 * p.dmgMul, '170,220,255', { chill: 2.5, pc: '#d6f3ff', kb: 150 });
+      for (let i = 0; i < n; i++) throwBoom(a0 + (i - (n - 1) / 2) * .5, 28 * p.dmgMul, 300, 20, { icon: '❄️', chill: 2.5, onEnd: burst });
+      sfx('whoosh');
+    },
+  },
+  satboom: {
+    host: 'boom', n: 'บูมเมอแรงบริวาร', i: '🪃', from: ['boom', 'orbit'], cd: 1.3, ds: 'ขว้างบูมเมอแรง 2 อัน แต่ละอันมีลูกแก้ว 3 ลูกหมุนรอบ กวาดศัตรูทั้งขาไปและขากลับ',
+    fire(w) {
+      const p = S.p, n = 2 + p.amount, a0 = aimAngle();
+      for (let i = 0; i < n; i++) throwBoom(a0 + (i - (n - 1) / 2) * .6, 30 * p.dmgMul, 300, 14, { icon: '🪃', sat: 3, c: '#b48cff' });
+      sfx('whoosh');
+    },
+  },
 };
-const FUSE = {}; // 'a+b' (sorted ids) → fused spell id
-for (const k in FUSED) { Object.assign(FUSED[k], { fused: 1, max: 1 }); FUSE[FUSED[k].from.slice().sort().join('+')] = k; }
+const FUSE = {}; // host spell → other spell → fused spell id
+for (const k in FUSED) {
+  const f = Object.assign(FUSED[k], { fused: 1, max: 1 }), other = f.from.find(x => x !== f.host);
+  (FUSE[f.host] = FUSE[f.host] || {})[other] = k;
+}
 Object.assign(WEAP, FUSED);
 
 const PASS = {
@@ -650,18 +807,20 @@ function updateShots(dt) {
   const p = S.p;
   for (const s of S.shots) {
     if (s.k === 'missile') {
-      s.x += s.vx * dt; s.y += s.vy * dt;
-      if ((s.life -= dt) <= 0) { s.dead = 1; continue; }
+      s.x += s.vx * dt; s.y += s.vy * dt; if (s.spin) s.rot += 16 * dt;
+      if ((s.life -= dt) <= 0) { s.dead = 1; if (s.onEnd) s.onEnd(s); continue; }
       query(s.x, s.y, s.r + 50, e => {
         if (s.dead || s.hit.has(e)) return;
         if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (s.r + e.r) ** 2) {
           s.hit.add(e); hurt(e, s.dmg, 90, s.vx, s.vy);
           if (s.chill) chill(e, s.chill);
           if (s.onHit) s.onHit(e, s);
-          if (--s.pierce <= 0) s.dead = 1;
+          if (--s.pierce <= 0) { s.dead = 1; if (s.onEnd) s.onEnd(s); }
         }
       });
       if (Math.random() < .5) particle(s.x, s.y, rnd(-20, 20), rnd(-20, 20), .3, s.c || '#c3a6ff', 2);
+    } else if (s.k === 'delay') {
+      if ((s.t -= dt) <= 0) { s.dead = 1; s.run(); }
     } else if (s.k === 'spinner') {
       if ((s.life -= dt) <= 0) { s.dead = 1; continue; }
       s.x += s.vx * dt; s.y += s.vy * dt; s.rot += 14 * dt;
@@ -688,8 +847,13 @@ function updateShots(dt) {
         if (d < p.r + 12 || s.age > 6) { s.dead = 1; if (s.onEnd) s.onEnd(s); continue; }
       }
       if (s.fire && (s.ft -= dt) <= 0) { s.ft = s.fireT; s.fire(s); }
-      query(s.x, s.y, s.r + 50, e => {
-        if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (s.r + e.r) ** 2 && S.t >= (s.hits.get(e) || 0)) {
+      let hr = s.r;
+      if (s.sat) { // orbs circling the boomerang
+        const R = 30 * p.areaMul, r = 9 * p.areaMul; hr = R + r;
+        for (let i = 0; i < s.sat; i++) { const a = s.age * 9 + i * TAU / s.sat; S.orbs.push({ x: s.x + Math.cos(a) * R, y: s.y + Math.sin(a) * R, r, c: s.c }); }
+      }
+      query(s.x, s.y, hr + 50, e => {
+        if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (hr + e.r) ** 2 && S.t >= (s.hits.get(e) || 0)) {
           s.hits.set(e, S.t + .35); hurt(e, s.dmg, 120, e.x - s.x, e.y - s.y);
           if (s.chill) chill(e, s.chill);
           if (s.onHit) s.onHit(e, s);
@@ -754,12 +918,13 @@ function upgradeOptions(n) {
   if (!out.length) out.push({ t: 'heal', k: 'heal' });
   return out;
 }
-// every pair of owned max-level base spells whose fused spell isn't owned yet
+// the wizard's own spell at max level + each other max-level base spell, whose fused spell isn't owned yet
 function fuseOptions() {
-  const ready = Object.keys(S.w).filter(k => !WEAP[k].fused && S.w[k].lvl >= WEAP[k].max), out = [];
-  for (let i = 0; i < ready.length; i++) for (let j = i + 1; j < ready.length; j++) {
-    const k = FUSE[[ready[i], ready[j]].sort().join('+')];
-    if (k && !S.w[k]) out.push({ t: 'f', k, a: ready[i], b: ready[j] });
+  const h = S.char.w, maxed = k => S.w[k] && !WEAP[k].fused && S.w[k].lvl >= WEAP[k].max, out = [];
+  if (!maxed(h)) return out;
+  for (const k of Object.keys(S.w)) {
+    const f = k !== h && maxed(k) && FUSE[h][k];
+    if (f && !S.w[f]) out.push({ t: 'f', k: f, a: h, b: k });
   }
   return out;
 }
@@ -904,7 +1069,8 @@ function draw() {
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(o.x - o.r * .3, o.y - o.r * .3, o.r * .35, 0, TAU); ctx.fill();
   }
   for (const s of S.shots) {
-    if (s.k === 'missile') {
+    if (s.k === 'missile' && s.icon) drawSpr(s.icon, s.x, s.y, s.r * 2.6, false, s.rot);
+    else if (s.k === 'missile') {
       ctx.globalAlpha = .35; ctx.fillStyle = s.c || '#b48cff'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r * 2, 0, TAU); ctx.fill();
       ctx.globalAlpha = 1; ctx.fillStyle = '#f2eaff'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill();
     } else if (s.k === 'boom') drawSpr(s.icon || '🪄', s.x, s.y, s.r * 2.6, false, s.rot);
@@ -986,7 +1152,7 @@ function updateSlots() {
 /* ---------------- test room: admin panel (only when S.test) */
 let testMode = false;
 function renderAdmin() {
-  const base = Object.keys(WEAP).filter(k => !WEAP[k].fused), fused = Object.keys(WEAP).filter(k => WEAP[k].fused);
+  const base = Object.keys(WEAP).filter(k => !WEAP[k].fused), fused = Object.keys(WEAP).filter(k => WEAP[k].fused && WEAP[k].host === S.char.w);
   const row = (kind, k, d, l) => `<div class="arow"><span>${d.i}</span><span class="nm">${d.n}</span><b>${l}/${d.max}</b><button data-a="${kind}-" data-k="${k}">−</button><button data-a="${kind}+" data-k="${k}">+</button></div>`;
   $('admin').innerHTML = `<div class="ahead"><b>🛠 แผงแอดมิน</b><button data-a="close">✕</button></div>
     <div class="abtns"><button data-a="god" class="${S.god ? 'on' : ''}">อมตะ: ${S.god ? 'เปิด' : 'ปิด'}</button><button data-a="heal">ฟื้น HP เต็ม</button><button data-a="lvl">เลเวลอัป +1</button><button data-a="clear">ล้างศัตรู (ไม่รวมบอส)</button><button data-a="time">เวลา +1 นาที</button><button data-a="dragon">เรียกมังกรเพลิง</button><button data-a="demon">เรียกราชาปีศาจ</button></div>
