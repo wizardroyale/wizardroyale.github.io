@@ -259,11 +259,11 @@ const WEAP = {
   },
   chain: {
     n: 'สายฟ้าลูกโซ่', i: '⚡', max: 6,
-    ds: ['', 'ฟ้าผ่าศัตรูบนจอ แล้วกระโดดต่อไปตัวที่อยู่ใกล้', 'กระโดดเพิ่ม 1 ตัว · ดาเมจ +6', 'ผ่าพร้อมกัน 2 สาย', 'กระโดดเพิ่ม 1 ตัว · ร่ายไวขึ้น', 'ดาเมจ +6 · กระโดดเพิ่ม 1 ตัว', 'ผ่าพร้อมกัน 3 สาย · ดาเมจ +6'],
+    ds: ['', 'ฟ้าผ่าศัตรูที่ใกล้คุณที่สุด แล้วกระโดดต่อไปตัวที่อยู่ใกล้', 'กระโดดเพิ่ม 1 ตัว · ดาเมจ +6', 'ผ่าพร้อมกัน 2 สาย', 'กระโดดเพิ่ม 1 ตัว · ร่ายไวขึ้น', 'ดาเมจ +6 · กระโดดเพิ่ม 1 ตัว', 'ผ่าพร้อมกัน 3 สาย · ดาเมจ +6'],
     st: l => ({ cd: 2.1 - 0.12 * l, s: 1 + (l >= 3) + (l >= 6), j: 2 + l, dmg: 16 + 6 * l }),
     fire(w, st) {
-      const p = S.p, vis = visible(); if (!vis.length) return false;
-      for (let s = 0; s < st.s + p.amount; s++) { const e = vis[Math.random() * vis.length | 0]; zap(e.x + rnd(-30, 30), e.y - H * 0.6, e, st.j, st.dmg * p.dmgMul, 150 * p.areaMul); }
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      for (let s = 0; s < st.s + p.amount; s++) { const e = vis[s % vis.length]; zap(e.x + rnd(-30, 30), e.y - H * 0.6, e, st.j, st.dmg * p.dmgMul, 150 * p.areaMul); }
       sfx('zap');
     },
   },
@@ -275,11 +275,11 @@ const WEAP = {
   },
   meteor: {
     n: 'อุกกาบาต', i: '☄️', max: 6,
-    ds: ['', 'เรียกอุกกาบาตถล่มศัตรูบนจอ ระเบิดเป็นวงกว้าง', '+1 ลูก', 'ระเบิดกว้างขึ้น · ดาเมจ +10', '+1 ลูก · ร่ายไวขึ้น', 'ดาเมจ +10 · ระเบิดกว้างขึ้น', '+1 ลูก · ดาเมจ +20'],
+    ds: ['', 'เรียกอุกกาบาตถล่มศัตรูที่ใกล้คุณที่สุด ระเบิดเป็นวงกว้าง', '+1 ลูก', 'ระเบิดกว้างขึ้น · ดาเมจ +10', '+1 ลูก · ร่ายไวขึ้น', 'ดาเมจ +10 · ระเบิดกว้างขึ้น', '+1 ลูก · ดาเมจ +20'],
     st: l => ({ cd: 2.8 - 0.18 * l, n: 1 + Math.floor(l / 2), R: 44 + 8 * l, dmg: 26 + 10 * l + (l >= 6 ? 10 : 0) }),
     fire(w, st) {
-      const p = S.p, vis = visible(); if (!vis.length) return false;
-      for (let i = 0; i < st.n + p.amount; i++) { const e = vis[Math.random() * vis.length | 0]; dropMeteor(e.x + rnd(-20, 20), e.y + rnd(-20, 20), st.R * p.areaMul, st.dmg * p.dmgMul, 0.7 + i * 0.12); }
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      for (let i = 0; i < st.n + p.amount; i++) { const e = vis[i % vis.length]; dropMeteor(e.x + rnd(-20, 20), e.y + rnd(-20, 20), st.R * p.areaMul, st.dmg * p.dmgMul, 0.7 + i * 0.12); }
     },
   },
   boom: {
@@ -331,8 +331,8 @@ const FUSED = {
   starfall: {
     n: 'ฝนดาวตก', i: '🌌', from: ['meteor', 'missile'], cd: .35, ds: 'ดาวตกลูกเล็กพรั่งพรูใส่ศัตรูบนจอ 2 ลูกทุก 0.35 วินาที',
     fire(w) {
-      const p = S.p, vis = visible(); if (!vis.length) return false;
-      for (let i = 0; i < 2 + p.amount; i++) { const e = vis[Math.random() * vis.length | 0]; dropMeteor(e.x + rnd(-15, 15), e.y + rnd(-15, 15), 50 * p.areaMul, 45 * p.dmgMul, .45, { icon: '🌠', c: '180,160,255', pc: '#c9b8ff' }); }
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
+      for (let i = 0; i < 2 + p.amount; i++) { const e = vis[i % vis.length]; dropMeteor(e.x + rnd(-15, 15), e.y + rnd(-15, 15), 50 * p.areaMul, 45 * p.dmgMul, .45, { icon: '🌠', c: '180,160,255', pc: '#c9b8ff' }); }
     },
   },
   stormblade: {
@@ -381,18 +381,18 @@ const FUSED = {
     tick(w, st, dt) {
       const p = S.p, R = 140 * p.areaMul; auraTick(w, R, 8 * p.dmgMul, .6, dt);
       if (every(w, 'ft', .45, dt)) {
-        const ins = []; query(p.x, p.y, R, e => { if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 < R * R) ins.push(e); });
+        const ins = [], d2 = e => (e.x - p.x) ** 2 + (e.y - p.y) ** 2; query(p.x, p.y, R, e => { if (d2(e) < R * R) ins.push(e); }); ins.sort((a, b) => d2(a) - d2(b));
         if (ins.length) sfx('zap');
-        for (let i = 0; i < 4 + p.amount && ins.length; i++) { const e = ins.splice(Math.random() * ins.length | 0, 1)[0]; zap(e.x + rnd(-20, 20), e.y - 300, e, 2, 34 * p.dmgMul, 130 * p.areaMul); }
+        for (let i = 0; i < 4 + p.amount && ins.length; i++) { const e = ins.shift(); zap(e.x + rnd(-20, 20), e.y - 300, e, 2, 34 * p.dmgMul, 130 * p.areaMul); }
       }
     },
   },
   skyfire: {
     n: 'อุกกาบาตอัสนี', i: '🌋', from: ['chain', 'meteor'], cd: 1.4, ds: 'อุกกาบาตลูกใหญ่ 3 ลูก ระเบิดแล้วปล่อยสายฟ้ากระโดดต่ออีก 5 ตัว',
     fire(w) {
-      const p = S.p, vis = visible(); if (!vis.length) return false;
+      const p = S.p, vis = visibleNear(); if (!vis.length) return false;
       for (let i = 0; i < 3 + p.amount; i++) {
-        const e = vis[Math.random() * vis.length | 0];
+        const e = vis[i % vis.length];
         dropMeteor(e.x, e.y, 75 * p.areaMul, 70 * p.dmgMul, .6 + i * .1, { onBoom: s => zap(s.x, s.y, nearestTo(s.x, s.y, 200 * p.areaMul), 5, 30 * p.dmgMul, 150 * p.areaMul) });
       }
     },
@@ -516,6 +516,11 @@ function visible() {
   const p = S.p, out = [];
   for (const e of S.enemies) if (!e.dead && Math.abs(e.x - p.x) < W / 2 && Math.abs(e.y - p.y) < H / 2) out.push(e);
   return out;
+}
+// on-screen enemies, nearest first (lightning / meteor shots go down this list)
+function visibleNear() {
+  const p = S.p, d = e => (e.x - p.x) ** 2 + (e.y - p.y) ** 2;
+  return visible().sort((a, b) => d(a) - d(b));
 }
 
 /* ---------------- enemies */
