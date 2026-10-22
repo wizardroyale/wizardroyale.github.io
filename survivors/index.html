@@ -81,7 +81,7 @@ a.back{display:inline-block;margin-top:12px;color:var(--dim);font-size:13px}
   <p class="sub">เวทมนตร์ร่ายเองอัตโนมัติ แค่เดินหลบ เก็บคริสตัล อัปเลเวล แล้วรอดให้ถึงนาทีที่ 10 เพื่อโค่นราชาปีศาจ</p>
   <div class="cards" id="chars"></div>
   <div class="btnrow"><button class="big alt" id="testBtn">🧪 ห้องทดสอบ: ปิด</button></div>
-  <p class="hint" id="testHint" style="display:none">เปิดห้องทดสอบแล้ว เลือกจอมเวทเพื่อเริ่ม · ในเกมกดปุ่ม 🛠 เพื่อเปิดแผงแอดมิน (อมตะ อัปเวท อัปของวิเศษ) · ไม่บันทึกสถิติ</p>
+  <p class="hint" id="testHint" style="display:none">เปิดห้องทดสอบแล้ว เลือกจอมเวทเพื่อเริ่ม · ในเกมกดปุ่ม 🛠 เพื่อเปิดแผงแอดมิน (อมตะ อัปเวท อัปของวิเศษ) · ศัตรูไม่ดรอป EXP · ไม่บันทึกสถิติ</p>
   <p class="hint">✨ อัปเวท 2 อันจนเลเวลตัน แล้วผสมเป็นเวทใหม่ได้ (15 แบบ)</p>
   <p class="hint">เดิน: WASD / ปุ่มลูกศร · มือถือ: แตะค้างแล้วลาก · พักเกม: P / Esc</p>
   <p class="best" id="best"></p>
@@ -604,7 +604,7 @@ function kill(e) {
   e.dead = true; S.kills++;
   const d = e.d;
   for (let i = 0; i < (d.boss ? 50 : 5); i++) particle(e.x, e.y, rnd(-130, 130), rnd(-130, 130), rnd(.3, .7), d.c, rnd(2, d.boss ? 6 : 4));
-  if (d.xp) dropGem(e.x, e.y, d.xp);
+  if (d.xp && !S.test) dropGem(e.x, e.y, d.xp); // the test room levels up from the admin panel only
   if (d.boss) {
     S.gems.push({ k: 'chest', x: e.x, y: e.y });
     S.shake = .5; sfx('boom');
