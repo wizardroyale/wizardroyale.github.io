@@ -179,6 +179,10 @@ function throwBoom(a, dmg, range, r, o = {}) {
   const p = S.p, sp = 560;
   S.shots.push({ k: 'boom', x: p.x, y: p.y, ax: Math.cos(a), ay: Math.sin(a), sp, dec: sp * sp / (2 * range * Math.sqrt(p.areaMul)), r: r * p.areaMul, dmg, hits: new Map(), rot: 0, age: 0, ft: 0, ...o });
 }
+// an orb launched from (x, y) that circles outward in a widening spiral
+function shootSpiral(x, y, a, dmg, o = {}) {
+  S.shots.push({ k: 'spiral', cx: x, cy: y, x, y, a, R: 20, vR: o.vR || 150, spin: o.spin || 3.2, r: (o.r || 13) * S.p.areaMul, dmg, life: o.life || 2.4, hits: new Map(), c: o.c });
+}
 function dropMeteor(x, y, R, dmg, delay, o = {}) { S.shots.push({ k: 'meteor', x, y, t: delay, T: delay, R, dmg, ...o }); }
 function explode(x, y, R, dmg, c = '255,140,60', o = {}) {
   query(x, y, R + 50, e => {
@@ -298,10 +302,11 @@ const WEAP = {
 // They have no levels; `cd` is used by fire(), tick() spells time themselves with every().
 const FUSED = {
   comet: {
-    n: 'ดาวหางวน', i: '🌠', from: ['missile', 'orbit'], ds: 'ดาวหาง 5 ดวงหมุนรอบตัว และยิงลูกศรเวทออกไปรอบทิศทุก 0.7 วินาที',
-    tick(w, st, dt) {
-      const p = S.p, pos = orbTick(w, 'comet', 5 + p.amount, 110 * p.areaMul, 13 * p.areaMul, 3.2, 30 * p.dmgMul, dt, { c: '#ffe08a' });
-      if (every(w, 'ft', .7, dt)) { for (const [x, y, a] of pos) shootMissile(x, y, a, 30 * p.dmgMul, { pierce: 2, c: '#ffe08a' }); sfx('shoot'); }
+    n: 'ดาวหางวน', i: '🌠', from: ['missile', 'orbit'], cd: .8, ds: 'ยิงดาวหาง 5 ดวงที่หมุนวนเป็นเกลียวกว้างออกไปรอบตัวทุก 0.8 วินาที ทะลุทุกตัวที่ขวางทาง',
+    fire(w) {
+      const p = S.p, n = 5 + p.amount; w.spin = (w.spin || 0) + .35;
+      for (let i = 0; i < n; i++) shootSpiral(p.x, p.y, w.spin + i * TAU / n, 30 * p.dmgMul, { c: '#ffe08a' });
+      sfx('shoot');
     },
   },
   thunderbolt: {
@@ -656,6 +661,17 @@ function updateShots(dt) {
         }
       });
       if (Math.random() < .5) particle(s.x, s.y, rnd(-20, 20), rnd(-20, 20), .3, s.c || '#c3a6ff', 2);
+    } else if (s.k === 'spiral') {
+      if ((s.life -= dt) <= 0) { s.dead = 1; continue; }
+      s.a += s.spin * dt; s.R += s.vR * dt;
+      s.x = s.cx + Math.cos(s.a) * s.R; s.y = s.cy + Math.sin(s.a) * s.R;
+      S.orbs.push({ x: s.x, y: s.y, r: s.r, c: s.c });
+      query(s.x, s.y, s.r + 50, e => {
+        if ((e.x - s.x) ** 2 + (e.y - s.y) ** 2 < (s.r + e.r) ** 2 && S.t >= (s.hits.get(e) || 0)) {
+          s.hits.set(e, S.t + .45); hurt(e, s.dmg, 140, e.x - s.cx, e.y - s.cy);
+        }
+      });
+      if (Math.random() < .5) particle(s.x, s.y, rnd(-20, 20), rnd(-20, 20), .35, s.c, 2);
     } else if (s.k === 'meteor') {
       if ((s.t -= dt) > 0) continue;
       s.dead = 1;
