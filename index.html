@@ -3725,10 +3725,10 @@ async function kill(t, killer, { tokenPick = 0 } = {}) {
   (swap ? killer : t).tokens.push(tok);
   announceToken(swap ? killer : t, tok); // pop the token up mid-screen
   t.hp = swap ? 20 : tok.respawn || 20;
-  // a wizard who dies loses every Location they control: they go to that wizard's discard pile
-  const lost = t.ongoing.filter(c => isType(c, 'location'));
+  // a wizard who dies loses every Ongoing card they control (Locations too): they go to that wizard's discard pile
+  const lost = t.ongoing.slice();
   if (lost.length) {
-    t.ongoing = t.ongoing.filter(c => !lost.includes(c)); t.discard.push(...lost);
+    t.ongoing = []; t.discard.push(...lost);
     log(`${t.name} ตาย · ${lost.map(c => c.name).join(', ')} ลงกองทิ้ง`, 'dmg');
   }
   log(swap ? `☠ ${t.name} ตาย! (โดย ${killer.name}) · ${killer.name} รับ Dead Wizard Token “${tok.name}” แทน · ${t.name} ฟื้นคืนชีพที่ ${t.hp} HP`
@@ -3909,9 +3909,12 @@ async function refillLineup() {
 }
 
 async function startTurn(p) {
-  G.turn = { power: 0, played: [], shown: [], types: {}, attacked: false };
+  // 1/3 of the ทอง left over last turn (rounded down) carries into this one
+  const kept = p.savedPower || 0; p.savedPower = 0;
+  G.turn = { power: kept, played: [], shown: [], types: {}, attacked: false };
   p.ironUsed = false;
   log(`เทิร์นของ ${p.name}`, 'turn');
+  if (kept) log(`${p.name} มีทองเก็บไว้จากเทิร์นก่อน +${kept} ทอง`);
   render();
   await refillLineup(); if (G.ending) return;
   await FX.turn(p);
@@ -3942,6 +3945,8 @@ async function endTurn(p) {
   const wilds = G.turn.played.filter(c => c.id === 'wild'); G.wild += wilds.length;
   p.discard.push(...p.hand, ...G.turn.played.filter(c => !c.endBottom && c.id !== 'wild')); p.hand = []; G.turn.played = [];
   if (hasTrait(p, 'monk') && !G.turn.attacked) heal(p, 2);
+  p.savedPower = Math.floor(Math.max(0, G.turn.power) / 3); // carried into this player's next turn
+  if (p.savedPower) log(`${p.name} เก็บทอง ${p.savedPower} ไว้ใช้เทิร์นหน้า`);
   G.turn.power = 0;
   const handSize = 5 + p.ongoing.filter(c => c.id === 'palm').length // Hand of the Maker: +1 card
     + (p.hp >= 25 && p.ongoing.some(c => c.id === 'snackcart') ? 2 : 0) // Chubbula Snack Shack at full HP: +2
@@ -4204,7 +4209,7 @@ const RULES_HTML = `<div class="rules rg">
   <li><span>2</span><b>ต้นเทิร์น</b>ผลของการ์ดต่อเนื่อง ความสามารถพ่อมด และ Token</li>
   <li><span>3</span><b>เล่นการ์ด</b>จากมือ ลำดับใดก็ได้ รวมเป็น <em>ทอง</em></li>
   <li><span>4</span><b>ซื้อการ์ด</b>กี่ใบก็ได้ที่ราคารวมไม่เกินทอง → เข้ากองทิ้ง · เล่นต่อหลังซื้อได้</li>
-  <li><span>5</span><b>จบเทิร์น</b>ทิ้งมือและการ์ดที่เล่น จั่ว 5 ใบ · ทองที่เหลือหายไป</li>
+  <li><span>5</span><b>จบเทิร์น</b>ทิ้งมือและการ์ดที่เล่น จั่ว 5 ใบ · ทองที่เหลือ 1/3 (ปัดลง) เก็บไว้ใช้เทิร์นหน้า</li>
 </ol>
 <div class="rg-note">ช่องตำนานที่ถูกซื้อจะว่างจนจบเทิร์น แล้วเปิดใบใหม่มาเติม พ่อมดทุกคนโดน <b>Group Attack</b> ของใบนั้น</div>
 
@@ -4223,7 +4228,7 @@ const RULES_HTML = `<div class="rules rg">
   <div class="rg-step">รับ ☠ Token สุ่ม<small>หัก VP + ผลพิเศษ</small></div><i>→</i>
   <div class="rg-step good">ฟื้นที่ 20 HP<small>เล่นต่อ</small></div>
 </div>
-<div class="rg-note">ตายแล้ว <b>การ์ดสถานที่</b> ทุกใบที่วางอยู่ลงกองทิ้งของคุณ</div>
+<div class="rg-note">ตายแล้ว <b>การ์ดต่อเนื่อง</b> ทุกใบที่วางอยู่ (รวมสถานที่) ลงกองทิ้งของคุณ</div>
 <div class="rg-note">คนที่ฆ่าได้ถือ <b>ถ้วยรางวัลแชมป์</b>: จั่ว 6 ทิ้ง 1 ทุกจบเทิร์น จนกว่าจะมีคนอื่นฆ่าได้</div>
 
 <h3>ประเภทการ์ด</h3>
