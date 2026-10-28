@@ -3085,7 +3085,8 @@ const AUD = (() => {
   };
 
   /* music: a war-film score in D minor, 16 bars (~46 s) in four 4-bar sections that build up:
-     A strings ostinato + choir · B + taiko, snare fills, low pedal · C + horn theme, braam · D climax (Gm–Bb–A–A).
+     A strings ostinato + choir (war horn call) · B + taiko, snare fills, low pedal, men's choir, timpani rolls ·
+     C + horn theme, braam, war horn, trombones, war drum, violin 16ths · D climax (Gm–Bb–A–A) + brass stabs.
      Outside a battle (menu, game over) it stays calm: ostinato, choir and soft horns only. */
   const STEP = 60 / 84 / 2;                                  // one 8th note
   const CH = {                                               // r = bass root, tri = choir voicing
@@ -3128,6 +3129,13 @@ const AUD = (() => {
       choir(ch.tri, t, STEP * 8, lv >= 3 ? .06 : .045, 'mus');
       if (lv >= 4) choir([ch.tri[2] + 12], t, STEP * 8, .03, 'mus');
       if (lv >= 2) held('triangle', N(ch.r - 12), { t, a: .3, h: STEP * 7, r: .6, v: .09, f0: 300, w: .2 });
+      // battlefield weight: a low men's choir an octave down from B, trombones and tuba on root + fifth from C
+      if (lv >= 2) choir(ch.tri.map(m => m - 12), t, STEP * 8, lv >= 3 ? .045 : .035, 'mus');
+      if (lv >= 3) [ch.r, ch.r + 7, ch.r + 12].forEach(m => [-6, 6].forEach(dt =>
+        held('sawtooth', N(m), { t, a: .25, h: STEP * 7, r: .5, v: .02, f0: 220, f1: 800, q: 1.4, detune: dt, w: .5 })));
+      // war horn call over the first bar of the loop and of section C: a low horn rising root → fifth → octave
+      if (battle && bar === 0 && (sec === 0 || sec === 2)) [[0, 0, 3], [7, 3, 2], [12, 5, 3]].forEach(([iv, at, len]) =>
+        [-5, 5].forEach(dt => held('sawtooth', N(ch.r + 12 + iv), { t: t + at * STEP, a: .15, h: len * STEP, r: .9, v: .035, f0: 300, f1: 1100, q: 1.6, detune: dt, w: .9 })));
       // section start: timpani boom, crash, and a brass "braam" from section C on
       if (bar === 0 && lv >= 2) {
         tone('sine', 62, { t, to: 31, d: 2.2, v: .55, b: 'mus', w: .5 });
@@ -3158,6 +3166,14 @@ const AUD = (() => {
         if (tv) taiko(tt, tv);
       }
       if (lv >= 3 && SNARE[i]) snare(tt, SNARE[i]);
+      // a huge war drum under the taiko on the downbeats from C
+      if (lv >= 3 && (i === 0 || i === 8)) tone('sine', 58, { t: tt, to: 28, d: 1.1, v: .5, b: 'mus', w: .6 });
+      // violins: fast 16th arpeggios high above from C (louder in the climax)
+      if (lv >= 3) tone('sawtooth', N(ch.tri[[0, 1, 2, 1][i % 4]] + 12 + (i >= 8 ? 12 : 0) * (lv >= 4 ? 1 : 0)), { t: tt, a: .004, d: .09, v: lv >= 4 ? .02 : .014, filter: 'lowpass', f0: 3200, f1: 1500, b: 'mus', w: .5 });
+      // brass stabs on the 3+3+2 accents in the climax
+      if (lv >= 4 && k === 0 && (b === 0 || b === 3 || b === 6)) brass(ch.tri.map(m => m - 12), tt, .22, .05, 'mus');
+      // timpani roll into every section from B
+      if (lv >= 2 && bar === 3 && i >= 8) tone('sine', N(ch.r), { t: tt, to: N(ch.r) * .8, d: .18, v: .12 + (i - 8) * .04, b: 'mus', w: .4 });
       if (lv >= 3 && bar === 3 && i >= 8) snare(tt, .05 + (i - 8) * .025);  // snare roll into the next section
     }
   }
