@@ -237,7 +237,7 @@ button{font-family:inherit}
   border:3px solid var(--band,#888);position:relative;cursor:default;user-select:none;transition:transform .12s}
 .card .c-head{display:flex;align-items:center;gap:6px;background:var(--band);color:#fff;padding:4px 6px}
 /* the header is always two name-lines tall (--nf = the name's font size), so 1- and 2-line names line up */
-.card:not(.t-chaos) .c-head{height:calc(var(--nf) * 2.1 + 8px);flex:none}
+.card:not(.t-chaos) .c-head{height:calc(var(--nf) * var(--hl, 2.1) + 8px);flex:none}
 .card .c-cost{min-width:22px;height:22px;border-radius:50%;background:var(--gold);color:#2a1d05;display:grid;place-items:center;font-weight:700;font-size:13px}
 .card .c-cost:empty{display:none}
 .card .c-name{font-family:var(--f-display);font-size:var(--nf);line-height:1.05}
@@ -365,14 +365,16 @@ button{font-family:inherit}
 .card[data-zoom],.card.buyable[data-zoom],.card.playable[data-zoom],.opts .opt-card .card[data-zoom]{cursor:zoom-in}
 /* card names: at most 2 lines; fitNames() shrinks the font of longer ones */
 .card .c-name{display:block;overflow:hidden;max-height:calc(2em * 1.05 + 1px);overflow-wrap:anywhere}
-/* Thai names: Pirata One has no Thai, so they use Kanit; Thai vowels and tone marks (ไ ใ โ ่ ้ ุ) reach above and
-   below the letters, so the lines are taller and the box may use the whole header (fitNames shrinks the text to fit) */
-.card .c-name.th{font-family:var(--f-thname);font-weight:600;line-height:1.28;padding-block:.08em;max-height:100%;
+/* Thai names: Pirata One has no Thai, so they use Kanit. Thai vowels and tone marks (ไ ใ โ ู ุ ่ ้ ์) reach far above
+   and below the letters, so the lines are taller, the header gets a little taller (--hl) and the name is never clipped
+   (padding inside the clipped box leaves room for the marks; fitNames shrinks the text until it fits the header) */
+.card:has(.c-name.th){--hl:2.6}
+.card .c-name.th{font-family:var(--f-thname);font-weight:600;line-height:1.38;padding-block:.22em;max-height:100%;
   overflow-wrap:normal}
 .card .c-name.th .w{white-space:nowrap} /* break only at the spaces between words; fitNames shrinks a long word to fit */
 .card.zoomed{--nf:30px;width:min(340px,86vw);cursor:default;transform:none;box-shadow:0 24px 70px #000d}
 .card.zoomed .c-head{padding:10px 14px}
-.card.zoomed:not(.t-chaos) .c-head{height:calc(var(--nf) * 2.1 + 20px)}
+.card.zoomed:not(.t-chaos) .c-head{height:calc(var(--nf) * var(--hl, 2.1) + 20px)}
 .card.zoomed .c-cost{min-width:38px;height:38px;font-size:20px}
 /* zoomed art is square too (width-driven) */
 .card.zoomed:not(.t-chaos) .c-type{font-size:13px;padding:0 14px}
@@ -436,7 +438,7 @@ button{font-family:inherit}
   .dialog:has(.fam-pick) .opt-card:first-child::after{right:50%;top:auto;bottom:-17px;transform:translate(50%,50%)}
   #modal .dialog:has(.fam-pick){padding:18px 14px}}
 .dialog:has(.fam-pick) .opts .card{width:min(320px, 36vw, calc((100vh - 400px) / 1.8));--nf:clamp(15px, 2.4vw, 28px)}
-.dialog:has(.fam-pick) .opts .card .c-head{padding:6px 12px;height:calc(var(--nf) * 2.1 + 12px)}
+.dialog:has(.fam-pick) .opts .card .c-head{padding:6px 12px;height:calc(var(--nf) * var(--hl, 2.1) + 12px)}
 .dialog:has(.fam-pick) .opts .card .c-cost{min-width:32px;height:32px;font-size:17px}
 .dialog:has(.fam-pick) .opts .card .c-type{font-size:13px;padding:0 12px}
 .dialog:has(.fam-pick) .opts .card .c-text{font-size:clamp(13px, 1.35vw, 17px);line-height:1.5;padding:10px 12px;color:#1c1410}
