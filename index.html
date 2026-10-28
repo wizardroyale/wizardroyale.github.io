@@ -218,7 +218,6 @@ button{font-family:inherit}
 @container (max-width:640px){.market .mgroup{--card-w:calc((100cqw - 32px) / 3);--card-h:calc(var(--card-w) * 1.8)}}
 .market .card{--nf:clamp(12px, calc(var(--card-w) * 0.12), 17px)} /* narrower cards get a smaller name and header */
 /* shop cards drop the footer (its tags repeat the ability text): VP moves to a badge on the picture, leaving the text more room */
-.market .card:not(.back) .c-foot{display:none}
 .market .card:not(.t-chaos) .c-type{max-width:calc(100% - 40px)}
 .mgroup{display:flex;flex-direction:column;gap:4px;min-width:0}
 .mgroup .cap{font-size:11px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -257,10 +256,12 @@ button{font-family:inherit}
 .card .more-btn:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 /* VP badge on the picture: in the casting arena (footer VP hidden) and the shop (no footer) */
 .card .c-art{position:relative}
-.card .c-vpb{display:none}
-.arena .card .c-vpb,.market .card .c-vpb{display:block;position:absolute;right:4px;bottom:4px;padding:1px 6px;border-radius:999px;background:#000c;color:var(--gold);
-  font-weight:700;font-size:12px;line-height:1.4;font-variant-numeric:tabular-nums;box-shadow:0 0 0 1px #f0c35a66}
-.arena .card .c-foot .c-vp{display:none}
+/* top-right corner of the picture: VP, then the keyword tags, stacked */
+.card .c-badges{position:absolute;top:5px;right:5px;z-index:1;display:flex;flex-direction:column;align-items:flex-end;gap:3px;pointer-events:none}
+.card .c-badges .c-vp{padding:1px 7px;border-radius:999px;background:#000d;color:var(--gold);line-height:1.4;font-variant-numeric:tabular-nums;
+  box-shadow:0 0 0 1px #f0c35a77,0 1px 4px #000a}
+.card .c-badges .tag{margin:0;box-shadow:0 1px 4px #000c}
+.card.zoomed .c-badges{top:10px;right:10px;gap:5px}
 .tag{font-size:9.5px;font-weight:700;padding:1px 4px;border-radius:3px;color:#fff;margin-right:2px}
 .tag.act{background:var(--gold);color:#2a1d05}
 .act-wrap{display:flex;flex-direction:column;gap:6px;align-items:stretch}
@@ -4535,8 +4536,9 @@ function cardHTML(c, o = {}) {
   const cost = o.cost != null ? o.cost : (c.cost || '');
   const vp = c.vpCalc ? '<span class="c-vp" title="VP เปลี่ยนตามเงื่อนไขตอนจบเกม">★? VP</span>'
     : c.vp ? `<span class="c-vp">${c.vp > 0 ? '★' + c.vp : c.vp} VP</span>` : '';
-  // compact board cards hide the footer, so their VP also shows as a badge on the picture
-  const vpBadge = c.vpCalc ? '★?' : c.vp ? (c.vp > 0 ? '★' + c.vp : c.vp + ' VP') : '';
+  // VP and the keyword tags sit in the picture's top-right corner, so the ability text gets the whole bottom of the
+  // card; Chaos cards (full art, text on a scrim) keep them in their footer
+  const corner = c.type === 'chaos' || !(vp || tags.length) ? '' : `<div class="c-badges">${vp}${tags.join('')}</div>`;
   const extra = c.type === 'legend' && c.group && c.group !== '—' ? `<br><i>เมื่อปรากฏ: ${c.group}</i>` : '';
   // every card gets a zoom button; the card object is kept so the zoom view can redraw it large
   const zk = String(c.uid != null ? c.uid : 'd-' + c.id);
@@ -4544,10 +4546,10 @@ function cardHTML(c, o = {}) {
   const zoomAttr = o.noZoom ? '' : `data-zoom="${zk}"`;
   return `<div class="${cls.join(' ')}" ${o.attrs || ''} ${zoomAttr} ${o.attrs ? 'tabindex="0"' : ''} title="${c.name} · คลิกขวาเพื่อดูการ์ดขยาย">
     <div class="c-head"><span class="c-cost">${cost}</span><span class="c-name">${c.type === 'chaos' ? 'Chaos' : c.name}</span></div>
-    <div class="c-art art-${c.id}">${vpBadge ? `<span class="c-vpb" title="VP">${vpBadge}</span>` : ''}</div>
+    <div class="c-art art-${c.id}">${corner}</div>
     <div class="c-type">${TYPE_TH[c.type]}</div>
     <div class="c-text">${c.text || ''}${extra}</div>
-    <div class="c-foot"><span>${tags.join('')}</span>${vp}</div></div>`;
+    ${c.type === 'chaos' ? `<div class="c-foot"><span>${tags.join('')}</span>${vp}</div>` : ''}</div>`;
 }
 
 // settings → "เอฟเฟกต์: เต็ม / น้อย" (per browser); light mode skips the slow extras (wind-up, kill scene, HP drain)
