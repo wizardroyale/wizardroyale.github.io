@@ -183,9 +183,12 @@ Which to run:
   or `trait` (wizard ability); `delete`). Put each into the game (new tokens → `TOKENS`, new Chaos → a `chaos…` def + `MAIN`,
   new abilities → `TRAITS`), test, batch-update those docs to `status: 'applied'`, and refresh the page's `CARDS` entries.
   **Thai card names** (added 2026-10-17): `tools/names-th.json` (id → Thai name) is the source; the page's `CARDS` entries
-  carry them as `nt` (Chaos: "โกลาหล N"), shown before the English name, and an edit doc may carry `nt`. When pulling an
-  `nt` edit, update `tools/names-th.json`. New cards also get a Thai name. The game itself still shows English names
-  (a Thai/English name setting is planned; keep English names, `isWand` reads them).
+  carry them as `nt` (Chaos: "เคออส N"), shown before the English name, and an edit doc may carry `nt`. Thai names are
+  **Thai readings of the English names** (transliterated, e.g. Hiccup Fireball → ฮิคคัพ ไฟร์บอล), never translations
+  (changed 2026-10-28). When pulling an `nt` edit, update `tools/names-th.json` **and** the `NAMES_TH` map in `index.html`
+  (a copy of that file). New cards also get a Thai name in both. In game, players see `cn(c)` (Thai by default; setting
+  "ชื่อการ์ด: ไทย / English", key `sb-thnames`); `c.name` stays English for logic (`isWand`, comparisons), so use
+  `${cn(c)}` in new log / choice / label text.
   After adding pictures, read the artifact, add the ids to `IMGS`, and republish to the same url with
   `files: {"art/<id>.jpg": "art/<id>.jpg"}` for each new or replaced picture.
 - The user works on both Windows and macOS; `git pull` before editing.
