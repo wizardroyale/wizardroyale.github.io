@@ -6,7 +6,7 @@
      open the game once with #toggle-goatcounter on a device to stop counting that device -->
 <script data-goatcounter="https://ipoom187.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Chakra+Petch:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Chakra+Petch:wght@400;600;700&family=Kanit:wght@600&display=swap">
 <style>
 /* Layout: one-screen battle table — rivals across the top, the market in the middle, your hand at the bottom, battle log on the right */
 :root{
@@ -19,6 +19,7 @@
   --t-bent:#6b5a45; --t-familiar:#d0679b; --t-chaos:#26202b;
   --f-display:"Pirata One", "Georgia", serif;
   --f-body:"Chakra Petch", "Tahoma", "Leelawadee UI", sans-serif;
+  --f-thname:"Kanit", "Chakra Petch", "Tahoma", sans-serif; /* Thai card names */
   color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -364,6 +365,11 @@ button{font-family:inherit}
 .card[data-zoom],.card.buyable[data-zoom],.card.playable[data-zoom],.opts .opt-card .card[data-zoom]{cursor:zoom-in}
 /* card names: at most 2 lines; fitNames() shrinks the font of longer ones */
 .card .c-name{display:block;overflow:hidden;max-height:calc(2em * 1.05 + 1px);overflow-wrap:anywhere}
+/* Thai names: Pirata One has no Thai, so they use Kanit; Thai vowels and tone marks (ไ ใ โ ่ ้ ุ) reach above and
+   below the letters, so the lines are taller and the box may use the whole header (fitNames shrinks the text to fit) */
+.card .c-name.th{font-family:var(--f-thname);font-weight:600;line-height:1.28;padding-block:.08em;max-height:100%;
+  overflow-wrap:normal}
+.card .c-name.th .w{white-space:nowrap} /* break only at the spaces between words; fitNames shrinks a long word to fit */
 .card.zoomed{--nf:30px;width:min(340px,86vw);cursor:default;transform:none;box-shadow:0 24px 70px #000d}
 .card.zoomed .c-head{padding:10px 14px}
 .card.zoomed:not(.t-chaos) .c-head{height:calc(var(--nf) * 2.1 + 20px)}
@@ -4480,7 +4486,7 @@ function fitNames(root = document) {
     // the one-line Chaos logo only has to fit the header's width (minus its padding and the skew/glow);
     // its tall display glyphs always poke a few px past the line, so its height is not checked
     const fits = el.closest('.t-chaos') ? () => el.scrollWidth <= el.parentElement.clientWidth - 22
-      : () => el.scrollHeight <= el.clientHeight + 1;
+      : () => el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
     for (let s = base; !fits() && s > base * (el.closest('.t-chaos') ? 0.3 : 0.55); s -= 0.5) el.style.fontSize = (s - 0.5) + 'px';
   });
   // Dead Wizard Token coins: shrink a long effect text (down to 60%) so it stays inside the circle
@@ -4551,7 +4557,8 @@ function cardHTML(c, o = {}) {
   ZOOMS.set(zk, c);
   const zoomAttr = o.noZoom ? '' : `data-zoom="${zk}"`;
   return `<div class="${cls.join(' ')}" ${o.attrs || ''} ${zoomAttr} ${o.attrs ? 'tabindex="0"' : ''} title="${cn(c)} · คลิกขวาเพื่อดูการ์ดขยาย">
-    <div class="c-head"><span class="c-cost">${cost}</span><span class="c-name">${c.type === 'chaos' ? (THNAMES ? 'เคออส' : 'Chaos') : cn(c)}</span></div>
+    <div class="c-head"><span class="c-cost">${cost}</span><span class="c-name${THNAMES && c.type !== 'chaos' ? ' th' : ''}">${c.type === 'chaos' ? (THNAMES ? 'เคออส' : 'Chaos')
+      : THNAMES ? cn(c).split(' ').map(w => `<span class="w">${w}</span>`).join(' ') : cn(c)}</span></div>
     <div class="c-art art-${c.id}">${corner}</div>
     <div class="c-type">${TYPE_TH[c.type]}</div>
     <div class="c-text">${c.text || ''}${extra}</div>
