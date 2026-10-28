@@ -388,6 +388,15 @@ button{font-family:inherit}
 .dialog .msub{color:var(--mute);font-size:13px}
 .opts{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
 .opts .opt-card .card{cursor:pointer}
+/* question pop-ups (defend? which card?): cards big enough to read their ability, every button a filled box */
+#modal:not(.title-mode) .dialog:not(:has(.fam-pick)) .opts .card{width:min(190px, 44vw);--nf:18px}
+#modal:not(.title-mode) .dialog:not(:has(.fam-pick)) .opts .card .c-text{font-size:13.5px;line-height:1.45;color:#1c1410}
+#modal:not(.title-mode) .dialog:not(:has(.fam-pick)) .opts .card .c-cost{min-width:26px;height:26px;font-size:15px}
+#modal:not(.title-mode) .dialog:not(:has(.fam-pick)) .opts .card .tag{font-size:11px}
+#modal:not(.title-mode) #m-opts .btn{font-size:15px;padding:11px 18px;border-radius:8px;box-shadow:0 2px 8px #0006}
+#modal:not(.title-mode) #m-opts .btn.ghost{background:var(--panel2);border:1px solid #f0c35a66;color:var(--ink)}
+#modal:not(.title-mode) #m-opts .btn.ghost:hover{background:#3a2c44;border-color:var(--gold);filter:none}
+#modal .dialog .msub{font-size:14px;line-height:1.5;color:#cbbfd0}
 /* familiar pick (start of game): the wizard ability in a gold box, the two familiars side by side in the middle at
    the zoomed card's size (shrunk only to fit the screen's width and height) */
 #modal:has(.fam-pick){background:radial-gradient(ellipse at 50% 15%, #6a1a2e88, transparent 60%), linear-gradient(#0b0810c4, #0b0810f0),
@@ -638,6 +647,9 @@ table.score tr.win td{color:var(--gold);font-weight:700}
   box-shadow:0 0 30px #c8001e88;text-align:left}
 .legend-show .ls-k{display:block;font-size:12px;font-weight:700;letter-spacing:.1em;color:#ff8a9a;margin-bottom:6px}
 .legend-show .ls-group p{margin:0;font-size:clamp(16px,2.2vw,20px);line-height:1.5;color:#fff}
+.legend-win .lw-by{font-size:clamp(18px,2.6vw,26px);color:var(--ink);text-align:center;text-shadow:0 2px 6px #000}
+.legend-win .lw-by b{color:var(--gold)}
+.legend-win .cs-card .card{width:clamp(150px, min(70vw, calc((100vh - 270px) / 1.8)), 300px)}
 @media (max-width:640px){.legend-show .ls-row{flex-wrap:wrap}.legend-show .ls-group{flex-basis:100%}.legend-show .cs-card .card{width:clamp(130px, min(60vw, calc((100vh - 330px) / 1.8)), 220px)}}
 @media (prefers-reduced-motion:reduce){.card.buyable,.rival.active,.you.active,.banner .b-title{animation:none}.seats .rival{transition:none}}
 /* online play: lobby, waiting pill, seat tags */
@@ -1568,7 +1580,7 @@ def('chaosH', { name:'Chaos 13', type:'chaos', text:'พ่อมดทุกค
 def('chaosI', { name:'Chaos 14', type:'chaos', atk:1, text:'<b>โจมตี:</b> พ่อมดทุกคนทำลายการ์ดในมือแบบสุ่ม 1 ใบ แล้วได้ Wild Surge 1 ใบเข้ามือ',
   chaos: async by => {
     await attack(null, { to:'all', chaos:true, by, dmgText:'ทำลายการ์ดในมือแบบสุ่ม 1 ใบ แล้วได้ Wild Surge', dmg: t => {
-      if (t.hand.length) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; G.destroyed.push(c); log(`${t.name} เสีย ${cn(c)} (สุ่ม)`, 'dmg'); }
+      if (t.hand.length) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; G.destroyed.push(c); showRandDestroy(t, c, 'ในมือ'); log(`${t.name} เสีย ${cn(c)} (สุ่ม)`, 'dmg'); }
       if (G.wild > 0) { G.wild--; t.hand.push(make('wild')); log(`${t.name} ได้ Wild Surge เข้ามือ`); }
       return 0;
     } });
@@ -2651,9 +2663,9 @@ const TOKENS = [
       t.discard.splice(t.discard.indexOf(c), 1); G.destroyed.push(c); log(`${t.name} ทำลาย ${cn(c)}`);
     } },
   { id:'destroyRandDiscard', name:'ทำลายสุ่มในกองทิ้ง', text:'ทำลายการ์ด 1 ใบในกองทิ้งแบบสุ่ม',
-    now: async t => { if (!t.discard.length) return; const c = t.discard.splice(rnd(t.discard.length), 1)[0]; G.destroyed.push(c); log(`${t.name} เสีย ${cn(c)} (สุ่มทำลาย)`, 'dmg'); } },
+    now: async t => { if (!t.discard.length) return; const c = t.discard.splice(rnd(t.discard.length), 1)[0]; G.destroyed.push(c); showRandDestroy(t, c, 'ในกองทิ้ง'); log(`${t.name} เสีย ${cn(c)} (สุ่มทำลาย)`, 'dmg'); } },
   { id:'destroyRandHand', name:'ทำลายสุ่มในมือ', text:'ทำลายการ์ด 1 ใบในมือแบบสุ่ม',
-    now: async t => { if (!t.hand.length) return; const c = t.hand.splice(rnd(t.hand.length), 1)[0]; G.destroyed.push(c); log(`${t.name} เสีย ${cn(c)} (สุ่มทำลาย)`, 'dmg'); } },
+    now: async t => { if (!t.hand.length) return; const c = t.hand.splice(rnd(t.hand.length), 1)[0]; G.destroyed.push(c); showRandDestroy(t, c, 'ในมือ'); log(`${t.name} เสีย ${cn(c)} (สุ่มทำลาย)`, 'dmg'); } },
   { id:'discard3', name:'ทิ้ง 3 ใบ', text:'ทิ้งการ์ดในมือ 3 ใบ (เลือกเอง)', now: async t => discardFromHand(t, 3) },
   { id:'discardRand2', name:'ทิ้งสุ่ม 2 ใบ', text:'ทิ้งการ์ดในมือแบบสุ่ม 2 ใบ',
     now: async t => { for (let i = 0; i < 2 && t.hand.length; i++) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c); log(`${t.name} ทิ้ง ${cn(c)} (สุ่ม)`); } } },
@@ -3553,10 +3565,22 @@ const FX = (() => {
       setTimeout(() => box.remove(), 800);
       await sleep(200);
     },
-    legendWin(p, L) {
+    // a Legend bought: the card and its buyer stay big in the middle until the player clicks it away
+    async legendWin(p, L) {
       const { x, y } = at(p);
       sparks(innerWidth / 2, innerHeight * .42, '#f0c35a', 40, 260, 10); sparks(x, y, '#f0c35a', 20, 120, 8); shake(6); Embers.surge();
-      return banner('ล้มตำนาน!', `${p.name} พิชิต ${cn(L)}`, 'gold', T(1600));
+      const box = spawn('chaos-show legend-show legend-win', 0, 0);
+      box.innerHTML = `<div class="cs-title">ล้มตำนาน!</div>
+        <div class="lw-by"><b></b> ซื้อ <span></span></div>
+        <div class="cs-card">${cardHTML(L, { cls: 'zoomed', noZoom: true })}</div>
+        <div class="cs-hint">คลิกซ้ายที่ใดก็ได้เพื่อปิด</div>`;
+      box.querySelector('.lw-by b').textContent = p.name; box.querySelector('.lw-by span').textContent = cn(L);
+      fitNames(box);
+      await new Promise(r => box.addEventListener('pointerdown', e => { if (e.button === 0) r(); }));
+      box.style.pointerEvents = 'none';
+      box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 350, fill: 'forwards' }).onfinish = () => box.remove();
+      setTimeout(() => box.remove(), 800);
+      await sleep(200);
     },
     // Chaos: the card is held big in the middle of a lightning storm until the player clicks it away
     async chaos(c) {
@@ -4399,6 +4423,12 @@ function showEvent(card, label, kind = 'gain') {
 // middle of every player's screen for a few seconds, under one caption, and kept in the turn's "what happened" list.
 // One revealed card on its own can use showEvent(c, label, 'reveal') instead.
 const REV = { groups: [], timer: null };
+// a card destroyed at random (from a hand or discard pile): shown face up so everyone sees which one went;
+// trackMoves then skips its plain "ทำลาย" pop-up
+function showRandDestroy(t, c, from) {
+  if (G.turn) (G.turn.randDestroyed ||= []).push(c.uid);
+  showReveal([c], `${t.name} ถูกสุ่มทำลาย${from}: ${cn(c)}`);
+}
 function showReveal(cards, label) {
   cards = (cards || []).filter(Boolean);
   if (!G || !G.turn || !cards.length) return;
@@ -4454,6 +4484,7 @@ function trackDiff(now, before) {
     const bad = c.id === 'bent' ? 'bad' : 'gain';
     if (loc.z === 'destroyed') {
       if (!was) continue;
+      if (G.turn && (G.turn.randDestroyed || []).includes(uid)) continue;    // already shown by showRandDestroy
       const wp = G.players[was.pi];
       add(`x-${wp ? wp.name : ''}`, c, wp ? `${wp.name} ทำลาย` : 'ถูกทำลาย', 'destroy');
       continue;
