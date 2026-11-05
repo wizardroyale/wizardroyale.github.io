@@ -176,14 +176,31 @@ button{font-family:inherit}
 @keyframes popout{to{transform:scale(.9);opacity:0}}
 @media (prefers-reduced-motion:reduce){#pop .pop-item,#pop.out .pop-item{animation:none}}
 /* revealed cards (showReveal): a captioned row per reveal, upper middle of the screen, above the move pop-ups */
-#rev{position:fixed;left:50%;top:9vh;transform:translateX(-50%);z-index:41;pointer-events:none;display:flex;flex-direction:column;gap:10px;align-items:center;max-width:96vw}
+/* tutorial: a coach bubble over everything, and a spotlight (a hole in a dim layer) that lets clicks through */
+#tut{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:70;width:min(480px,calc(100vw - 24px));display:flex;flex-direction:column;gap:8px;
+  padding:12px 14px;border-radius:12px;background:var(--panel);border:2px solid var(--gold);box-shadow:0 12px 40px #000c;font-size:15px;line-height:1.5}
+#tut.at-top{bottom:auto;top:12px}
+#tut.nudge{animation:tutnudge .4s}
+#tut .tut-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+#tut .tut-h b{color:var(--gold);font-size:17px}
+#tut .tut-h .linkbtn{font-size:12px;white-space:nowrap}
+#tut .btn{align-self:flex-end}
+#tut{max-height:60vh;overflow:auto}
+#tut-spot{position:fixed;z-index:44;border-radius:12px;pointer-events:none;box-shadow:0 0 0 3px var(--gold),0 0 0 9999px #0009;transition:left .2s,top .2s,width .2s,height .2s}
+.ts-tut{width:100%}
+@keyframes tutnudge{25%{transform:translateX(calc(-50% - 8px))}75%{transform:translateX(calc(-50% + 8px))}}
+@media (prefers-reduced-motion:reduce){#tut.nudge{animation:none}#tut-spot{transition:none}}
+#rev{position:fixed;left:2vw;right:2vw;top:9vh;z-index:41;pointer-events:none;display:flex;flex-direction:column;gap:10px;align-items:center}
 #rev .rev-group{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 12px;border-radius:14px;
   background:color-mix(in srgb,var(--bg) 82%,transparent);box-shadow:0 0 0 1px var(--def),0 16px 40px #000c;animation:popin .32s cubic-bezier(.2,1.3,.4,1)}
 #rev .ev-cap{background:var(--def);color:#06282a;border-color:var(--def);font-size:14px;max-width:none;padding:3px 12px}
 #rev .rev-cards{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:92vw}
 #rev .card{width:118px}
+#rev .rev-cards.many{gap:4px}
+#rev .rev-cards.many .card{width:78px}
+#rev .rev-cards.many .card .c-text,#rev .rev-cards.many .card .c-cost{display:none} /* many cards: the name is what matters */
 #rev.out .rev-group{animation:popout .3s forwards}
-@media (max-width:760px){#rev .card{width:92px}#rev .card .c-text{font-size:9px}}
+@media (max-width:760px){#rev .card{width:92px}#rev .card .c-text{font-size:9px}#rev .rev-cards.many .card{width:62px}}
 @media (prefers-reduced-motion:reduce){#rev .rev-group,#rev.out .rev-group{animation:none}}
 .arena .card.fresh{animation:deal .55s cubic-bezier(.2,1.2,.4,1)}
 @keyframes deal{0%{transform:translateY(-50px) rotate(-8deg) scale(1.3);opacity:0;filter:brightness(2.4)}
@@ -230,6 +247,7 @@ button{font-family:inherit}
 /* pile counts (in .boardbar) */
 .piles{display:flex;flex-wrap:wrap;align-items:center;gap:6px 18px;font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums;justify-content:center}
 .piles b{color:var(--ink)}
+.piles .final-tag{color:#2a1d05;background:var(--gold);border-radius:999px;padding:1px 10px;font-weight:700}
 /* cards */
 .cards{display:flex;gap:8px;flex-wrap:wrap}
 /* every card (hand, market, pop-ups, dialogs, zoom…) has one shape, 1 wide : 1.8 tall, like the zoomed card */
@@ -785,11 +803,11 @@ def('meteor', { power:1, name:'Meteor Belch', type:'spell', cost:6, vp:2, atk:1,
   play: async p => { await attack(p, { to:'choose', dmg:7, onKill: async () => P(p, 2) }); } });
 def('rot', { power:1, name:'Hex of Rot', type:'spell', cost:3, vp:1, atk:1, text:'+1 ทอง<br><b>โจมตี:</b> ศัตรูที่แข็งแกร่งที่สุด (HP มากสุด) รับ 1 ดาเมจ และได้ Limp Wand',
   play: async p => { await attack(p, { to:'strongest', dmg:1, bent:1 }); } });
-def('leech', { name:'Mind Leech', type:'spell', cost:4, vp:1, atk:1, power:1, text:'+1 ทอง<br><b>โจมตี:</b> ศัตรู 2 คน (เลือก) ทิ้งการ์ดในมือคนละ 1 ใบ',
+def('leech', { name:'Mind Leech', type:'spell', cost:4, vp:1, atk:1, power:1, text:'+1 ทอง<br><b>โจมตี:</b> ศัตรู 3 คน (เลือก) ทิ้งการ์ดในมือคนละ 1 ใบ',
   play: async p => {
-    // pick 2 enemies (just the one in a 2-player game), then one attack hits both
+    // pick 3 enemies (everyone when there are fewer), then one attack hits them all
     const pool = opps(p).filter(t => t !== G.optOut), picked = [];
-    while (picked.length < 2 && picked.length < pool.length) {
+    while (picked.length < 3 && picked.length < pool.length) {
       const rest = pool.filter(t => !picked.includes(t));
       picked.push(p.isAI ? rest.slice().sort((a, b) => b.hand.length - a.hand.length)[0]
         : await pickTarget(p, rest, { label: `เลือกศัตรูคนที่ ${picked.length + 1} (Mind Leech)` }));
@@ -833,10 +851,10 @@ def('mistme', { name:'Mist You, Pal', type:'spell', cost:4, vp:1, power:2, def:1
   text:'+2 ทอง<br><b>ป้องกัน:</b> ทิ้งใบนี้เพื่อไม่โดนโจมตี แล้วจั่ว 1 และผู้โจมตีรับ 2 ดาเมจ',
   onDefend: async (t, src) => { await draw(t, 1); if (src) await damage(src, 2, t); } });
 def('goregasm', { power:1, name:'Gore Galore', type:'spell', cost:5, vp:1, draws:1,
-  text:'+1 ทอง<br>ถ้าคุณมี Dead Wizard Token 3 อันขึ้นไป จั่ว 3<br>ไม่อย่างนั้น +2 ทอง',
+  text:'+1 ทอง<br>ถ้าคุณมี Dead Wizard Token 3 อันขึ้นไป จั่ว 3<br>ไม่อย่างนั้น +1 ทอง',
   play: async p => {
     if (tokenCount(p) >= 3) await draw(p, 3);
-    else { P(p, 2); AUD.play('power'); }
+    else { P(p, 1); AUD.play('power'); }
   } });
 def('stoverheated', { name:'Stove-Top Meltdown', type:'spell', cost:5, vp:2, power:3, text:'+3 ทอง' });
 def('vomitcomet', { name:'Puke Meteor', type:'spell', cost:6, vp:1, atk:1, draws:1,
@@ -851,7 +869,7 @@ async function cometStrike(p, c) {
     await attack(p, { to:'choose', dmg: c.cost });
   }
 }
-def('wizardbabies', { name:'Tattletale Toddlers', type:'spell', cost:6, vp:2, power:3, atk:1,
+def('wizardbabies', { name:'Fire shield', type:'spell', cost:6, vp:2, power:3, atk:1,
   text:'+3 ทอง<br><b>โจมตี:</b> ศัตรูแต่ละคนรับ 2 ดาเมจ ต่อการ์ดป้องกันแต่ละใบในกองทิ้งของคนนั้น',
   play: async p => {
     await attack(p, { to:'each', dmgText:'2 ดาเมจต่อการ์ดป้องกันในกองทิ้งของคุณ',
@@ -940,8 +958,8 @@ def('bat', { name:'Shadow Bat', type:'creature', cost:3, vp:1, power:1, def:1, d
   play: async p => draw(p, 1), onDefend: async t => draw(t, 1) });
 def('dragon', { name:'Mire Dragon', type:'creature', cost:7, vp:3, atk:1, power:2, text:'+2 ทอง<br><b>โจมตี:</b> ศัตรูทุกคนรับ 2 ดาเมจ',
   play: async p => { await attack(p, { to:'each', dmg:2 }); } });
-def('mimic', { name:'Mimic Chest', type:'creature', cost:4, vp:1, text:'+1 ทอง ต่อสัตว์อสูรแต่ละตัวที่คุณเล่นเทิร์นนี้ (รวมตัวนี้)',
-  play: async p => P(p, G.turn.types.creature || 1) });
+def('mimic', { name:'Mimic Chest', type:'creature', cost:4, vp:1, text:'+1 ทอง และฟื้น 1 HP ต่อสัตว์อสูรแต่ละตัวที่คุณเล่นเทิร์นนี้ (รวมตัวนี้)',
+  play: async p => { const n = G.turn.types.creature || 1; P(p, n); heal(p, n); } });
 def('boogie', { name:'Disco Paladin', type:'creature', cost:2, vp:1, power:2, text:'+2 ทอง' });
 def('aciddragon', { name:'Heartburn Wyrm', type:'creature', cost:3, vp:1, power:1, text:'+1 ทอง<br>ดูการ์ดใบบนสุดของเด็คคุณ แล้วเลือกทำลายหรือวางไว้ที่เดิม',
   play: async p => {
@@ -1054,7 +1072,7 @@ def('cthulhu', { power:1, name:'Squidzilla the Elder', type:'creature', cost:7, 
     await attack(p, { to:'each', unblockable:1, dmgText:'ดาเมจเท่ากับราคาการ์ดที่ถูกสุ่มทิ้ง',
       dmg: t => {
         if (!t.hand.length) { log(`${t.name} ไม่มีการ์ดในมือ`); return 0; }
-        const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c);
+        const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c); showRandDiscard(t, [c]);
         log(`${t.name} ถูกบังคับทิ้ง ${cn(c)} (ราคา ${c.cost || 0})`); AUD.play('discard');
         return c.cost || 0;
       } });
@@ -1117,7 +1135,7 @@ def('skull', { name:'Gold Skull', type:'treasure', cost:3, vp:1, power:2, text:'
 def('mirror', { name:'Mirror Shield', type:'treasure', cost:3, vp:1, power:1, def:1, text:'+1 ทอง<br><b>ป้องกัน:</b> เปิดเพื่อไม่โดนโจมตี ผู้โจมตีรับ 1 ดาเมจ',
   onDefend: async (t, src) => { if (src) await damage(src, 1, t); } });
 def('flask', { name:'Healing Flask', type:'treasure', cost:2, power:1, text:'+1 ทอง<br>ฟื้น 4 HP', play: async p => heal(p, 4) });
-def('crown', { name:'Cursed Crown', type:'treasure', cost:5, vp:3, power:3, text:'+3 ทอง<br>คุณได้รับ Limp Wand 1 ใบ', play: async p => gainBent(p) });
+def('crown', { name:'Cursed Crown', type:'treasure', cost:4, vp:3, power:3, text:'+3 ทอง<br>คุณได้รับ Limp Wand 1 ใบ', play: async p => gainBent(p) });
 def('tome', { name:'Ancient Tome', type:'treasure', cost:6, vp:3, power:1, draws:1, text:'+1 ทอง<br>จั่ว 2', play: async p => draw(p, 2) });
 def('deepshit', { name:'Bottomless Bucket', type:'treasure', cost:4, vp:1, power:2, atk:1,
   text:'+2 ทอง<br><b>โจมตี:</b> ศัตรูทุกคนเปิดการ์ดใบบนสุดของเด็คตัวเอง แล้วทิ้งใบนั้น',
@@ -1238,8 +1256,8 @@ def('distressia', { name:'Dame Woe-Is-Me', type:'wizard', cost:3, vp:1, power:2,
     await attack(p, { to:'choose', dmgText:'ดาเมจเท่ากับราคาการ์ดบนสุดในเด็คของคุณ',
       dmg: t => { const c = revealTop(t); return c ? (c.cost || 0) : 0; } });
   } });
-def('destiny', { name:"Child of Fate", type:'wizard', cost:3, vp:1, power:1, draws:1, playFirst:1,
-  text:'+1 ทอง<br>ถ้านี่เป็นการ์ดใบแรกที่คุณเล่นในเทิร์นนี้ ทิ้งการ์ดในมือทั้งหมด แล้วจั่ว 4 ใบ',
+def('destiny', { name:"Child of Fate", type:'wizard', cost:3, vp:1, power:2, draws:1, playFirst:1,
+  text:'+2 ทอง<br>ถ้านี่เป็นการ์ดใบแรกที่คุณเล่นในเทิร์นนี้ ทิ้งการ์ดในมือทั้งหมด แล้วจั่ว 4 ใบ',
   play: async p => {
     if (G.turn.shown.length !== 1) { log(`${p.name} ไม่ได้เล่น Child of Fate เป็นใบแรก · ไม่ได้เปลี่ยนมือ`); return; }
     const n = p.hand.length;
@@ -1401,7 +1419,7 @@ def('rex', { name:'Scribble Rex the Doodler', type:'wizard', cost:6, vp:2, draws
   play: async p => draw(p, 2),
   onDefend: async t => draw(t, 2) });
 def('wor', { name:'Clankbot the Mecha-Mage', type:'wizard', cost:7, vp:2, power:5, text:'+5 ทอง' });
-def('witch', { power:1, name:'Hedge Witch', type:'wizard', cost:4, vp:1, def:1, draws:1, text:'+1 ทอง<br>ฟื้น 3 HP จั่ว 1<br><b>ป้องกัน:</b> เปิดเพื่อไม่โดนโจมตี และฟื้น 2 HP',
+def('witch', { name:'Hedge Witch', type:'wizard', cost:4, vp:1, def:1, draws:1, text:'ฟื้น 3 HP จั่ว 1<br><b>ป้องกัน:</b> เปิดเพื่อไม่โดนโจมตี และฟื้น 2 HP',
   play: async p => { heal(p, 3); await draw(p, 1); }, onDefend: async t => heal(t, 2) });
 def('battlemage', { power:1, name:'Battle Mage', type:'wizard', cost:5, vp:2, atk:1, text:'+1 ทอง<br><b>โจมตี:</b> เป้าหมายรับ 3 ดาเมจ +1 ต่อพ่อมดใบอื่นที่เล่นเทิร์นนี้',
   play: async p => { await attack(p, { to:'choose', dmg: 3 + Math.max(0, (G.turn.types.wizard || 1) - 1) }); } });
@@ -1439,7 +1457,7 @@ def('dirtywand', { power:2, name:'The Grimy Wand Car Wash', type:'location', cos
 // cards counted as a “Wand” by The Dirty Wand: Wand, Limp Wand, Wand of Hogwash…
 // Thai card names (Thai readings of the English names, from tools/names-th.json). The game logic keeps the English
 // `name` (isWand reads it); cn(c) is what players see, switched by the ชื่อการ์ด setting (sb-thnames, Thai by default).
-const NAMES_TH = {"rune":"รูน","wand":"วอนด์","weirdwand":"เวียร์ด วอนด์","fizzle":"ฟิซเซิล","bent":"ลิมพ์ วอนด์","wild":"ไวลด์ เซิร์จ","fireball":"ฮิคคัพ ไฟร์บอล","lightning":"สน็อต ไลท์นิง","meteor":"เมเทโอ เบลช์","rot":"เฮ็กซ์ ออฟ ร็อต","leech":"ไมนด์ ลีช","torrent":"อาร์เคน ทอร์เรนต์","chain":"เชน แซ็ป","siphon":"โซล ไซฟอน","purge":"เพิร์จ ริชวล","grabo":"แกร็บบี้ แฮนด์ส ออฟ กิมมี","dragonwhored":"ดราก้อน ฮอร์ด คลีนเอาต์","luckyday":"ฟอร์จูน คุกกี้ เบิร์ป","sinfection":"วิกเค็ดพ็อกซ์","megafisting":"เมก้า นัคเคิล แซนด์วิช!","mistme":"มิสต์ ยู แพล","goregasm":"กอร์ กาลอร์","stoverheated":"สโตฟ-ท็อป เมลต์ดาวน์","vomitcomet":"พุก มีทิเออร์","wizardbabies":"แทตเทิลเทล ท็อดเดลอร์ส","annihilaggedon":"คาบูมาเกดดอน!","lowfive":"ฮาล์ฟ-ฮาร์ทเท็ด ไฮ ไฟว์","wizardwaste":"ซอร์เซอเรอร์ ซีวิจ","wolfcookie":"แวร์วูล์ฟ บิสกิต บินจ์","hocus":"เลเซอร์ พอยน์เตอร์ เฮ็กซ์","poopal":"เทิร์ด บัดดี้ เพย์แบ็ก","summontrash":"คอนจัวร์ การ์เบจ","brainystorm":"ธิงก์สตอร์ม","dontgive":"ซีโร่ บาเธอร์ส กิฟเวน","lamps":"จีนี่ แลมป์ วิชลิสต์","winmore":"วินนิง ฮาร์เดอร์... ฮาร์เดอร์","friendality":"เฟรนิมี ฟินิชเชอร์","scry":"สไคร เบิร์สต์","doom":"ดูม เรน","vortex":"วอร์เท็กซ์ เบิร์ป","ward":"วอร์ด บับเบิล","goblin":"พัสชูล ก็อบลิน","toad":"กลูม โท้ด","hound":"โบน ฮาวนด์","troll":"สแวมป์ โทรลล์","bat":"แชโดว์ แบ็ต","dragon":"ไมร์ ดราก้อน","mimic":"มิมิค เชสต์","boogie":"ดิสโก้ พาลาดิน","aciddragon":"ฮาร์ทเบิร์น เวิร์ม","fatality":"ฟินิช-ฮิม บรอว์เลอร์","notlive":"ซอมบี้ เชียร์ สควอด","luckycharms":"เลพริคอน เลฟต์โอเวอร์ส","sk8ratz":"คิกฟลิป เวอร์มิน","stabbysteve":"โพกี้ พีท","harpies":"เกรมลิน ชรีกเกอร์ส","twins":"เดอะ คอนจอยน์ด คัสซินส์","what":"เดอะ ฮะ?!","bfg":"บิ๊ก กรัมปี้ โกเลม","fruity":"ทุตติ-ฟรุตติ ทรีแอนต์","cthulhu":"สควิดซิลล่า ดิ เอลเดอร์","storkos":"ราเวนัส สตอร์ก แก๊ง","ballz":"บาวน์ซี่ โบลเดอร์ บรอส","orc":"สต็อก-อาร์ต ออร์ค","sinquisition":"เดอะ ซินสเปกชัน สควอด","mib":"มิสทรี แมน อิน อะ เครต","blobies":"เมก้า กลูปปี้ส์","satan":"โททัลลี่ แรด ดีมอน ลอร์ด","beerholder":"โฮลด์-มาย-มีด โอเกอร์","shagoth":"มีทฮีป เดอะ แชมเบลอร์","sexsquatch":"บิ๊กฟุต คาซาโนวา","kobang":"โก๋แบง","crystal":"แคร็กด์ คริสตัล","skull":"โกลด์ สกัลล์","mirror":"มิเรอร์ ชิลด์","flask":"ฮีลลิง ฟลาสก์","crown":"เคิร์สด์ คราวน์","tome":"แอนเชียนต์ โทม","deepshit":"บอททอมเลส บักเก็ต","goldengirls":"แกรนนี่ส์ ออฟ เดอะ โกลเดน โกลว์","boner":"โบน ออฟ คอนเทนชัน","staph":"ครัสตี้ สตาฟ ออฟ อินเฟกชัน","sexcalibur":"บูตี้ คอล เบลล์","porkus":"วอนด์ ออฟ ฮ็อกวอช","battlesax":"แบทเทิล แซกโซโฟน","dragonballz":"ดราก้อน เอ้กซ์","overkill":"เลเจนด์ โรสต์ บาร์บีคิว","joyboy":"กู๊ดดี้ แบ็ก ออฟ กิกเกิลส์","grail":"เดอะ เคิร์สด์ คัพ","laurels":"โกลเดน รีธ ออฟ แกรนด์ปา กัส","tshirt":"เมิร์ช บูธ ฮูดดี้","evil":"ดิสทิลด์ วิกเค็ดเนส","wart":"แฮก โมล ออฟ พาวเวอร์","fatcula":"ชับบูล่า แวกอน","pole":"อันเดด ดิสโก้ โพล","tongue":"ไซเบอร์ ทัง","glom":"แอปเพรนทิส กลอม","labrador":"โฮคัส-พูเดิล","carlotta":"เรนต์-อะ-แฟมิเลียร์ รอนดา","distressia":"เดม วู-อีส-มี","destiny":"ไชลด์ ออฟ เฟต","fishmonger":"บาร์นาเคิล แองเกลอร์ ออฟ สเปลส์","rippskull":"ลอร์ด ซิตเฟซ","sblendo":"สนูโซ่ เดอะ ไนท์แมร์ เมกเกอร์","expando":"บัลจ์เบรน เดอะ ธิงเกอร์","pythox":"เลเซอร์ วูล์ฟกัง","veearr":"กอกเกิล วิซาร์ด 3000","fingler":"ทวิดเดิลธัมบ์","sugarpuss":"แคนดี้ วิตช์ แซ็กคารีน่า","solzar":"สตาร์เบลซ เดอะ ซูเปอร์โนวา","wyverns":"ดับเบิล ทรับเบิล เดรกส์!","wormster":"วิกโกล เดอะ เวิร์ม เมจ","slippy":"บานาน่า พีล พีท","splittnut":"แคร็กพ็อต กราวด์ สแมชเชอร์","weewoe":"ไซเรน ซอร์เซอเรอร์ส","cruelnipps":"มีนนี่ แม็กกริป","pimpsbury":"โดว์บอย แดซเลอร์","bing":"แบร์รี่ บิ๊กเคลม ดิ อันเดอร์ไรเตอร์","rex":"สคริบเบิล เร็กซ์ เดอะ ดูเดิลเลอร์","wor":"แคลงค์บอท เดอะ เมคา-เมจ","witch":"เฮดจ์ วิตช์","battlemage":"แบทเทิล เมจ","vexx":"อาร์คเมจ เว็กซ์","necro":"เนโคร สกอลาร์","altar":"บลัด ออลทาร์","tower":"ทาวเวอร์ ออฟ อายส์","tentakill":"สควิด ฟอร์เทรส","gomart":"ควิกกี้-มาร์ท ออฟ ฮีลลิง","skullzfyre":"เมาท์ บอนไฟร์","murdershroom":"โทดสตูล บ็อก ออฟ ดูม","pleasure":"เดอะ สปา ออฟ ดีไลท์ส","arena":"คาบูม โคลอสเซียม","giftshop":"ฮอลล์ ออฟ ฮีโร่ส์... ซูเวเนียร์ สแตนด์","dirtywand":"เดอะ ไกรมี่ วอนด์ คาร์ วอช","palm":"แฮนด์ ออฟ เดอะ เมกเกอร์","grove":"ฟังกัล โกรฟ","grimbald":"โอลด์ กริมบอลด์","ashra":"ควีน อัชรา","morgrath":"มอร์กราธ อันดายอิง","zil":"ซิล เดอะ แมด","oblivia":"โอบลิเวีย","hrothgut":"ฮรอธกัท","vile":"ซิสเตอร์ ไวล์","pudge":"โอลด์ พัดจ์","duke":"เดอะ เพล ดยุค","kaz":"คาซ โบนคราวน์","willy":"วัน-ทูธ วัน-ชู วอลลี่","bennana":"บานาน่า-แมนเซอร์ เบนนี่","krazztar":"กอร์ บารอน กริมทัสก์","lickity":"สเลิร์ปโป ดีมอน ออฟ เดอะ ดีพ","chafia":"แชมเปียน เบลซ แอนด์ ฮ็อต คิตตี้","ciggy":"สโมกกี้ เดอะ ลิงเกอริง ดูม","papaboner":"ปาป้า สเกเลตัน","cosmicglyph":"ดิ แอสทรัล รูน","darklord":"โอเวอร์ลอร์ด ออฟ เดอะ ลอสต์ แอนด์ ฟาวนด์","skullzor":"เกรเทสต์ ฮิตส์ อังกอร์!!!","extinction":"โปรเฟสเซอร์ อะพอคาลิปส์","jenny":"อาร์คเมจ กัมมี่ กู๊ดฮาร์ท","peetfarm":"กลูมมี่ เคาน์ตี้ บ็อก ฟาร์ม","goreorgy":"เคาน์เตส กริสลี่ เดอะ เทสตี้ อันเดด","elderwand":"แอนเชียนต์ วอนด์ ออฟ เดอะ กรับบี้ คิด","sinobiting":"เดอะ ไบต์ ออฟ ซิน","blistreria":"ชรีคินา ควีน ออฟ เดอะ เกรมลิน ชรีกเกอร์ส","explozivo":"คาบลูอี้ เดอะ บาวเวล บลาสเตอร์","snackcart":"ชับบูล่า สแน็ก แช็ก","goldy":"โกลดี้ เดอะ เอ้ก-เลย์อิง กูส","dingler":"ทู-เฮดเด็ด ลักกี้ ดูแด็ด","rlyeh":"สควิด เทมเพิล เรฟ","limpwandlegend":"เดอะ ฟล็อปปีเอสต์ วอนด์","throne":"ซีต ออฟ เชนานิแกนส์","orbital":"สเปซ เลเซอร์ วิซาร์ด สไตรก์","kombatant":"อันดายอิง ทัวร์นาเมนต์ แชมป์","pylon":"ทราฟฟิก โคน ออฟ ปาป้า สเกเลตัน","viagrus":"สติฟฟัส ดิ อันเบนดิง","deathlunch":"ดูม บุฟเฟต์!","continuum":"ด็อกเตอร์ ไทม์วาร์ป แอนด์ ลิล ทูท","gatling":"แกตลิง วอนด์ ออฟ เซอร์เจนต์ บูม","nacho":"เมก้า ชีส คาบูม โคลอสเซียม","heist":"แกรนด์ ลาร์เซนี","reaper":"เดอะ จอลลี่ กริม รีปเปอร์","devil":"แพ็กต์ วิธ เดอะ พิตลอร์ด","mrbun":"เซอร์ ฟลัฟฟิงตัน โรก เพ็ท","vortexfuckery":"เดอะ เวิร์ลพูล ออฟ โททัล นอนเซนส์","schadenfreude":"เซนต์ กลอตส์เวิร์ธ","winnerwand":"เดอะ แชมเปียน วอนด์ ออฟ วิกทอรี","blackbart":"กัปตัน พลันเดอร์เบียร์ด","imp":"อิมป์ พิป","gcat":"เกรฟ แคท","newt":"เอมเบอร์ นิวท์","oracle":"โท้ด ออราเคิล","raven":"เฮ็กซ์ เรเวน","golem":"มอส โกเลม","sprite":"สปอร์ สไปรต์","goldyfam":"ไชนี่!","hairy":"ฟัซเซิลส์ เดอะ คอสมิก เฟอร์บอล","hocusporkus":"อบราคาดาบรา พิกเล็ต","hank":"ราวดี้ ริก ปาร์ตี้ อิมป์","hugchuck":"แฮกกิส ฮักเกอร์","kids":"แบรตส์!","squeakers":"เซอร์ นิบเบิลส์ เอสไควร์","poof":"พัฟฟ์ เดอะ เรนโบว์ คลาวด์","stinkus":"เซนต์ พองโก","phlegm":"เซอร์ สน็อต เดอะ โฮลี่","sparky":"คินเดิล เพจ ออฟ เฟลมส์","spoogy":"สเควิร์ต เดอะ วิซาร์ด สควิด","dungeonmaster":"เดอะ เกม มาสเตอร์","juice":"เดอะ สมูทตี้","lastlaugh":"เดอะ ไฟนอล ชัคเคิล","buzzy":"รัมเบิล เดอะ เชนซอว์","candy":"ชูการ์ รัช โซลเจอร์ส","cosmo":"โคเมต ออฟ เอฟเวอรี่ ไคนด์","suitors":"สแปร์ บอยเฟรนด์ส","dogo":"ด็อกโก้ เดอะ กลูมมี่","dukefreak":"บารอน ฟรีกโชว์ เอสไควร์","gimby":"กรับ เดอะ ก็อบลิน บัตเลอร์","hando":"กิมมี่ เดอะ ลิฟวิง โกลฟ","yore":"เทลส์ ออฟ โอลเดน เดย์ส","leviathan":"คราเคน เอ้ก","nil":"นัล ฮังกรี้ ก็อด ออฟ เดอะ วอยด์","palcenta":"สแน็ก-แซ็ก! ยัวร์ ลันช์ บัดดี้","pussy":"คิตตี้ เดอะ เฮนเพ็กด์","ramon":"มอร์ติเมอร์ โมลด์ เดอะ บุ๊กไมต์","spellboy":"สเปลคิด","spoiledmilk":"ซาวร์ มิลค์ แอนด์ เดอะ แบรต แพ็ก","breakfast":"เดอะ บาลานซ์ด เบรกฟาสต์","scaredstiff":"เดอะ เพทริฟายด์ โซเชียล คลับ","skeeve":"เดอะ สลีซี่ เจสเตอร์","turdlings":"เดอะ สติงก์ลิงส์","tiny":"ทีนี่ เดอะ พ็อกเก็ต วิซาร์ด","tombofnil":"คริปต์ ออฟ นัล","weeby":"อนิเมะ แฟนบอย","wolfeye":"อาย ออฟ เดอะ มูนวูล์ฟ","orangypsy":"แทนเจอรีน ฟอร์จูน เทลเลอร์","treats":"ทริก-ออร์-ทรีต เทอร์เรอร์","eel":"วอยด์ อีล"};
+const NAMES_TH = {"rune":"รูน","wand":"วอนด์","weirdwand":"เวียร์ด วอนด์","fizzle":"ฟิซเซิล","bent":"ลิมพ์ วอนด์","wild":"ไวลด์ เซิร์จ","fireball":"ฮิคคัพ ไฟร์บอล","lightning":"สน็อต ไลท์นิง","meteor":"เมเทโอ เบลช์","rot":"เฮ็กซ์ ออฟ ร็อต","leech":"ไมนด์ ลีช","torrent":"อาร์เคน ทอร์เรนต์","chain":"เชน แซ็ป","siphon":"โซล ไซฟอน","purge":"เพิร์จ ริชวล","grabo":"แกร็บบี้ แฮนด์ส ออฟ กิมมี","dragonwhored":"ดราก้อน ฮอร์ด คลีนเอาต์","luckyday":"ฟอร์จูน คุกกี้ เบิร์ป","sinfection":"วิกเค็ดพ็อกซ์","megafisting":"เมก้า นัคเคิล แซนด์วิช!","mistme":"มิสต์ ยู แพล","goregasm":"กอร์ กาลอร์","stoverheated":"สโตฟ-ท็อป เมลต์ดาวน์","vomitcomet":"เมเทโอ อ้วก","wizardbabies":"โล่ติดไฟ","annihilaggedon":"คาบูมาเกดดอน!","lowfive":"ฮาล์ฟ-ฮาร์ทเท็ด ไฮ ไฟว์","wizardwaste":"ซอร์เซอเรอร์ ซีวิจ","wolfcookie":"แวร์วูล์ฟ บิสกิต บินจ์","hocus":"เลเซอร์ พอยน์เตอร์ เฮ็กซ์","poopal":"เทิร์ด บัดดี้ เพย์แบ็ก","summontrash":"คอนจัวร์ การ์เบจ","brainystorm":"ธิงก์สตอร์ม","dontgive":"ซีโร่ บาเธอร์ส กิฟเวน","lamps":"จีนี่ แลมป์ วิชลิสต์","winmore":"วินนิง ฮาร์เดอร์... ฮาร์เดอร์","friendality":"เฟรนิมี ฟินิชเชอร์","scry":"สไคร เบิร์สต์","doom":"ดูม เรน","vortex":"วอร์เท็กซ์ เบิร์ป","ward":"วอร์ด บับเบิล","goblin":"พัสชูล ก็อบลิน","toad":"กลูม โท้ด","hound":"โบน ฮาวนด์","troll":"สแวมป์ โทรลล์","bat":"แชโดว์ แบ็ต","dragon":"ไมร์ ดราก้อน","mimic":"มิมิค เชสต์","boogie":"ดิสโก้ พาลาดิน","aciddragon":"ฮาร์ทเบิร์น เวิร์ม","fatality":"ฟินิช-ฮิม บรอว์เลอร์","notlive":"ซอมบี้ เชียร์ สควอด","luckycharms":"เลพริคอน เลฟต์โอเวอร์ส","sk8ratz":"คิกฟลิป เวอร์มิน","stabbysteve":"โพกี้ พีท","harpies":"เกรมลิน ชรีกเกอร์ส","twins":"เดอะ คอนจอยน์ด คัสซินส์","what":"เดอะ ฮะ?!","bfg":"บิ๊ก กรัมปี้ โกเลม","fruity":"ทุตติ-ฟรุตติ ทรีแอนต์","cthulhu":"สควิดซิลล่า ดิ เอลเดอร์","storkos":"ราเวนัส สตอร์ก แก๊ง","ballz":"บาวน์ซี่ โบลเดอร์ บรอส","orc":"สต็อก-อาร์ต ออร์ค","sinquisition":"เดอะ ซินสเปกชัน สควอด","mib":"มิสทรี แมน อิน อะ เครต","blobies":"เมก้า กลูปปี้ส์","satan":"โททัลลี่ แรด ดีมอน ลอร์ด","beerholder":"โฮลด์-มาย-มีด โอเกอร์","shagoth":"มีทฮีป เดอะ แชมเบลอร์","sexsquatch":"บิ๊กฟุต คาซาโนวา","kobang":"โก๋แบง","crystal":"แคร็กด์ คริสตัล","skull":"โกลด์ สกัลล์","mirror":"มิเรอร์ ชิลด์","flask":"ฮีลลิง ฟลาสก์","crown":"เคิร์สด์ คราวน์","tome":"แอนเชียนต์ โทม","deepshit":"บอททอมเลส บักเก็ต","goldengirls":"แกรนนี่ส์ ออฟ เดอะ โกลเดน โกลว์","boner":"โบน ออฟ คอนเทนชัน","staph":"ครัสตี้ สตาฟ ออฟ อินเฟกชัน","sexcalibur":"บูตี้ คอล เบลล์","porkus":"วอนด์ ออฟ ฮ็อกวอช","battlesax":"แบทเทิล แซกโซโฟน","dragonballz":"ดราก้อน เอ้กซ์","overkill":"เลเจนด์ โรสต์ บาร์บีคิว","joyboy":"กู๊ดดี้ แบ็ก ออฟ กิกเกิลส์","grail":"เดอะ เคิร์สด์ คัพ","laurels":"โกลเดน รีธ ออฟ แกรนด์ปา กัส","tshirt":"เมิร์ช บูธ ฮูดดี้","evil":"ดิสทิลด์ วิกเค็ดเนส","wart":"แฮก โมล ออฟ พาวเวอร์","fatcula":"ชับบูล่า แวกอน","pole":"อันเดด ดิสโก้ โพล","tongue":"ไซเบอร์ ทัง","glom":"แอปเพรนทิส กลอม","labrador":"โฮคัส-พูเดิล","carlotta":"เรนต์-อะ-แฟมิเลียร์ รอนดา","distressia":"เดม วู-อีส-มี","destiny":"ไชลด์ ออฟ เฟต","fishmonger":"บาร์นาเคิล แองเกลอร์ ออฟ สเปลส์","rippskull":"ลอร์ด ซิตเฟซ","sblendo":"สนูโซ่ เดอะ ไนท์แมร์ เมกเกอร์","expando":"บัลจ์เบรน เดอะ ธิงเกอร์","pythox":"เลเซอร์ วูล์ฟกัง","veearr":"กอกเกิล วิซาร์ด 3000","fingler":"ทวิดเดิลธัมบ์","sugarpuss":"แคนดี้ วิตช์ แซ็กคารีน่า","solzar":"สตาร์เบลซ เดอะ ซูเปอร์โนวา","wyverns":"ดับเบิล ทรับเบิล เดรกส์!","wormster":"วิกโกล เดอะ เวิร์ม เมจ","slippy":"บานาน่า พีล พีท","splittnut":"แคร็กพ็อต กราวด์ สแมชเชอร์","weewoe":"ไซเรน ซอร์เซอเรอร์ส","cruelnipps":"มีนนี่ แม็กกริป","pimpsbury":"โดว์บอย แดซเลอร์","bing":"แบร์รี่ บิ๊กเคลม ดิ อันเดอร์ไรเตอร์","rex":"สคริบเบิล เร็กซ์ เดอะ ดูเดิลเลอร์","wor":"แคลงค์บอท เดอะ เมคา-เมจ","witch":"เฮดจ์ วิตช์","battlemage":"แบทเทิล เมจ","vexx":"อาร์คเมจ เว็กซ์","necro":"เนโคร สกอลาร์","altar":"บลัด ออลทาร์","tower":"ทาวเวอร์ ออฟ อายส์","tentakill":"สควิด ฟอร์เทรส","gomart":"ควิกกี้-มาร์ท ออฟ ฮีลลิง","skullzfyre":"เมาท์ บอนไฟร์","murdershroom":"โทดสตูล บ็อก ออฟ ดูม","pleasure":"เดอะ สปา ออฟ ดีไลท์ส","arena":"คาบูม โคลอสเซียม","giftshop":"ฮอลล์ ออฟ ฮีโร่ส์... ซูเวเนียร์ สแตนด์","dirtywand":"เดอะ ไกรมี่ วอนด์ คาร์ วอช","palm":"แฮนด์ ออฟ เดอะ เมกเกอร์","grove":"ฟังกัล โกรฟ","grimbald":"โอลด์ กริมบอลด์","ashra":"ควีน อัชรา","morgrath":"มอร์กราธ อันดายอิง","zil":"ซิล เดอะ แมด","oblivia":"โอบลิเวีย","hrothgut":"ฮรอธกัท","vile":"ซิสเตอร์ ไวล์","pudge":"โอลด์ พัดจ์","duke":"เดอะ เพล ดยุค","kaz":"คาซ โบนคราวน์","willy":"วัน-ทูธ วัน-ชู วอลลี่","bennana":"บานาน่า-แมนเซอร์ เบนนี่","krazztar":"กอร์ บารอน กริมทัสก์","lickity":"สเลิร์ปโป ดีมอน ออฟ เดอะ ดีพ","chafia":"แชมเปียน เบลซ แอนด์ ฮ็อต คิตตี้","ciggy":"สโมกกี้ เดอะ ลิงเกอริง ดูม","papaboner":"ปาป้า สเกเลตัน","cosmicglyph":"ดิ แอสทรัล รูน","darklord":"โอเวอร์ลอร์ด ออฟ เดอะ ลอสต์ แอนด์ ฟาวนด์","skullzor":"เกรเทสต์ ฮิตส์ อังกอร์!!!","extinction":"โปรเฟสเซอร์ อะพอคาลิปส์","jenny":"อาร์คเมจ กัมมี่ กู๊ดฮาร์ท","peetfarm":"กลูมมี่ เคาน์ตี้ บ็อก ฟาร์ม","goreorgy":"เคาน์เตส กริสลี่ เดอะ เทสตี้ อันเดด","elderwand":"แอนเชียนต์ วอนด์ ออฟ เดอะ กรับบี้ คิด","sinobiting":"เดอะ ไบต์ ออฟ ซิน","blistreria":"ชรีคินา ควีน ออฟ เดอะ เกรมลิน ชรีกเกอร์ส","explozivo":"คาบลูอี้ เดอะ บาวเวล บลาสเตอร์","snackcart":"ชับบูล่า สแน็ก แช็ก","goldy":"โกลดี้ เดอะ เอ้ก-เลย์อิง กูส","dingler":"ทู-เฮดเด็ด ลักกี้ ดูแด็ด","rlyeh":"สควิด เทมเพิล เรฟ","limpwandlegend":"เดอะ ฟล็อปปีเอสต์ วอนด์","throne":"ซีต ออฟ เชนานิแกนส์","orbital":"สเปซ เลเซอร์ วิซาร์ด สไตรก์","kombatant":"อันดายอิง ทัวร์นาเมนต์ แชมป์","pylon":"ทราฟฟิก โคน ออฟ ปาป้า สเกเลตัน","viagrus":"สติฟฟัส ดิ อันเบนดิง","deathlunch":"ดูม บุฟเฟต์!","continuum":"ด็อกเตอร์ ไทม์วาร์ป แอนด์ ลิล ทูท","gatling":"แกตลิง วอนด์ ออฟ เซอร์เจนต์ บูม","nacho":"เมก้า ชีส คาบูม โคลอสเซียม","heist":"แกรนด์ ลาร์เซนี","reaper":"เดอะ จอลลี่ กริม รีปเปอร์","devil":"แพ็กต์ วิธ เดอะ พิตลอร์ด","mrbun":"เซอร์ ฟลัฟฟิงตัน โรก เพ็ท","vortexfuckery":"เดอะ เวิร์ลพูล ออฟ โททัล นอนเซนส์","schadenfreude":"เซนต์ กลอตส์เวิร์ธ","winnerwand":"เดอะ แชมเปียน วอนด์ ออฟ วิกทอรี","blackbart":"กัปตัน พลันเดอร์เบียร์ด","imp":"อิมป์ พิป","gcat":"เกรฟ แคท","newt":"เอมเบอร์ นิวท์","oracle":"โท้ด ออราเคิล","raven":"เฮ็กซ์ เรเวน","golem":"มอส โกเลม","sprite":"สปอร์ สไปรต์","goldyfam":"ไชนี่!","hairy":"ฟัซเซิลส์ เดอะ คอสมิก เฟอร์บอล","hocusporkus":"อบราคาดาบรา พิกเล็ต","hank":"ราวดี้ ริก ปาร์ตี้ อิมป์","hugchuck":"แฮกกิส ฮักเกอร์","kids":"แบรตส์!","squeakers":"เซอร์ นิบเบิลส์ เอสไควร์","poof":"พัฟฟ์ เดอะ เรนโบว์ คลาวด์","stinkus":"เซนต์ พองโก","phlegm":"เซอร์ สน็อต เดอะ โฮลี่","sparky":"คินเดิล เพจ ออฟ เฟลมส์","spoogy":"สเควิร์ต เดอะ วิซาร์ด สควิด","dungeonmaster":"เดอะ เกม มาสเตอร์","juice":"เดอะ สมูทตี้","lastlaugh":"เดอะ ไฟนอล ชัคเคิล","buzzy":"รัมเบิล เดอะ เชนซอว์","candy":"ชูการ์ รัช โซลเจอร์ส","cosmo":"โคเมต ออฟ เอฟเวอรี่ ไคนด์","suitors":"สแปร์ บอยเฟรนด์ส","dogo":"ด็อกโก้ เดอะ กลูมมี่","dukefreak":"บารอน ฟรีกโชว์ เอสไควร์","gimby":"กรับ เดอะ ก็อบลิน บัตเลอร์","hando":"กิมมี่ เดอะ ลิฟวิง โกลฟ","yore":"เทลส์ ออฟ โอลเดน เดย์ส","leviathan":"คราเคน เอ้ก","nil":"นัล ฮังกรี้ ก็อด ออฟ เดอะ วอยด์","palcenta":"สแน็ก-แซ็ก! ยัวร์ ลันช์ บัดดี้","pussy":"คิตตี้ เดอะ เฮนเพ็กด์","ramon":"มอร์ติเมอร์ โมลด์ เดอะ บุ๊กไมต์","spellboy":"สเปลคิด","spoiledmilk":"ซาวร์ มิลค์ แอนด์ เดอะ แบรต แพ็ก","breakfast":"เดอะ บาลานซ์ด เบรกฟาสต์","scaredstiff":"เดอะ เพทริฟายด์ โซเชียล คลับ","skeeve":"เดอะ สลีซี่ เจสเตอร์","turdlings":"เดอะ สติงก์ลิงส์","tiny":"ทีนี่ เดอะ พ็อกเก็ต วิซาร์ด","tombofnil":"คริปต์ ออฟ นัล","weeby":"อนิเมะ แฟนบอย","wolfeye":"อาย ออฟ เดอะ มูนวูล์ฟ","orangypsy":"แทนเจอรีน ฟอร์จูน เทลเลอร์","treats":"ทริก-ออร์-ทรีต เทอร์เรอร์","eel":"วอยด์ อีล"};
 let THNAMES = (() => { try { return localStorage.getItem('sb-thnames') !== '0'; } catch { return true; } })();
 const cn = c => !c ? '' : !THNAMES ? c.name : c.type === 'chaos' ? String(c.name).replace(/^Chaos/, 'เคออส') : NAMES_TH[c.id] || c.name;
 const isWand = c => /\bWand\b/.test(c.name) && c.id !== 'dirtywand';
@@ -1855,7 +1873,7 @@ def('chaos2T', { name:'Chaos 37', type:'chaos',
     for (const t of bettors) {
       if (handCost(t) === m) { log(`${t.name} ชนะ! จั่ว 2`, 'good'); await draw(t, 2); }
       else {   // a losing bettor: one random card from hand to the discard pile, a Limp Wand into hand instead
-        if (t.hand.length) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c); log(`${t.name} แพ้ · สุ่มทิ้ง ${cn(c)}`, 'dmg'); }
+        if (t.hand.length) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c); showRandDiscard(t, [c]); log(`${t.name} แพ้ · สุ่มทิ้ง ${cn(c)}`, 'dmg'); }
         if (G.bent > 0) { G.bent--; await toHand(t, make('bent')); log(`${t.name} รับ Limp Wand ใส่มือ`, 'dmg'); AUD.play('curse'); FX.curse(t); }
       }
     }
@@ -2088,7 +2106,7 @@ def('rlyeh', { power:1, name:"Squid Temple Rave", type:'legend', alsoType:'spell
     await attack(p, { to:'each', unblockable:1, dmgText:'ทิ้งการ์ดแบบสุ่ม 2 ใบ รับดาเมจเท่าราคารวม', dmg: t => {
       const gone = [];
       for (let i = 0; i < 2 && t.hand.length; i++) gone.push(t.hand.splice(rnd(t.hand.length), 1)[0]);
-      t.discard.push(...gone);
+      t.discard.push(...gone); showRandDiscard(t, gone);
       if (gone.length) log(`${t.name} ทิ้ง ${gone.map(c => cn(c)).join(', ')} (สุ่ม)`);
       return gone.reduce((s, c) => s + (c.cost || 0), 0);
     } });
@@ -2356,11 +2374,11 @@ fam('suitors', { name:'Spare Boyfriends', power:2, draws:1, def:1,
   text:'+2 ทอง จั่ว 1<br><b>ป้องกัน:</b> เปิดใบนี้ให้ดู แล้วทิ้งการ์ดใบอื่นในมือแบบสุ่ม 1 ใบ เพื่อไม่โดนการโจมตี (ใบนี้อยู่ในมือต่อ)',
   play: async p => draw(p, 1),
   onDefend: async (t, src, self) => { const others = t.hand.filter(c => c !== self); if (!others.length) return;
-    const c = others[rnd(others.length)]; t.hand.splice(t.hand.indexOf(c), 1); t.discard.push(c); log(`${t.name} ทิ้ง ${cn(c)} (สุ่ม)`); } });
+    const c = others[rnd(others.length)]; t.hand.splice(t.hand.indexOf(c), 1); t.discard.push(c); showRandDiscard(t, [c]); log(`${t.name} ทิ้ง ${cn(c)} (สุ่ม)`); } });
 fam('dogo', { name:'Doggo the Gloomy', power:3, ...DODGE_DRAW(1),
   text:'ขณะที่ใบนี้อยู่ในกองทิ้งของคุณ ทุกครั้งที่คุณได้ Dead Wizard Token ยกเลิกผลทันทีของ Token นั้น (ผลต่อเนื่องยังอยู่)<br>+3 ทอง<br><b>ป้องกัน:</b> ทิ้งใบนี้จากมือเพื่อไม่โดนการโจมตี แล้วจั่ว 1 ใบ' });
-fam('dukefreak', { name:'Baron Freakshow, Esquire', power:3, def:1, defDiscard:1, defDraw:1,
-  text:'+3 ทอง<br><b>ป้องกัน:</b> ทิ้งใบนี้จากมือเพื่อไม่โดนการโจมตี จั่ว 1 ใบ แล้วดูการ์ดใบบนสุดของกองหลัก ถ้าไม่ใช่โกลาหล นำขึ้นมือได้',
+fam('dukefreak', { name:'Baron Freakshow, Esquire', power:1, def:1, defDiscard:1, defDraw:1,
+  text:'+1 ทอง<br><b>ป้องกัน:</b> ทิ้งใบนี้จากมือเพื่อไม่โดนการโจมตี จั่ว 1 ใบ แล้วดูการ์ดใบบนสุดของกองหลัก ถ้าไม่ใช่โกลาหล นำขึ้นมือได้',
   onDefend: async t => {
     const c = G.main[G.main.length - 1];
     if (!c || c.type === 'chaos') { if (c) log(`${t.name} เห็น ${cn(c)} บนกองหลัก · เป็นโกลาหล`); return; }
@@ -2395,8 +2413,8 @@ fam('hando', { name:'Gimme the Living Glove', power:3, atk:1, def:1, defDiscard:
 fam('yore', { name:'Tales of Olden Days', draws:1, ...DODGE_DRAW(2),
   text:'จั่ว 1 ใบ เทิร์นนี้ตำนานราคาถูกลง 2<br><b>ป้องกัน:</b> ทิ้งใบนี้จากมือเพื่อไม่โดนการโจมตี แล้วจั่ว 2 ใบ',
   play: async p => { await draw(p, 1); G.turn.legendDiscount = (G.turn.legendDiscount || 0) + 2; } });
-fam('leviathan', { name:'Kraken Egg', power:3, def:1, defDiscard:1,
-  text:'ถ้าใบนี้เข้ามือคนที่ไม่ใช่เจ้าของ คนนั้นเสีย 20 HP ทันที แล้วใบนี้สับกลับเข้าเด็คของเจ้าของ<br>+3 ทอง<br><b>ป้องกัน:</b> ทิ้งใบนี้เพื่อไม่โดนการโจมตี วางใบนี้ในกองทิ้งของผู้โจมตีได้ แล้วจั่ว 3 ใบ',
+fam('leviathan', { name:'Kraken Egg', cost:8, power:1, def:1, defDiscard:1,
+  text:'ถ้าใบนี้เข้ามือคนที่ไม่ใช่เจ้าของ คนนั้นเสีย 20 HP ทันที แล้วใบนี้สับกลับเข้าเด็คของเจ้าของ<br>+1 ทอง<br><b>ป้องกัน:</b> ทิ้งใบนี้เพื่อไม่โดนการโจมตี วางใบนี้ในกองทิ้งของผู้โจมตีได้ แล้วจั่ว 3 ใบ',
   onDefend: async (t, src, self) => {
     if (src && (t.isAI || await humanChoose(t, `Kraken Egg: วางใบนี้ในกองทิ้งของ ${src.name}?`, [{ label: 'วาง', value: true }, { label: 'ไม่', value: false, ghost: true }]))) {
       t.discard.splice(t.discard.indexOf(self), 1); src.discard.push(self); log(`${t.name} ฝาก Kraken Egg ไว้ในกองทิ้งของ ${src.name}...`, 'sys');
@@ -2465,7 +2483,7 @@ fam('spoiledmilk', { name:'Sour Milk and the Brat Pack', power:3, atk:1, ...REFL
 fam('breakfast', { name:'The Balanced Breakfast', power:3, def:1, defDiscard:1,
   text:'+3 ทอง เป้าหมายทิ้งการ์ดในมือแบบสุ่ม 1 ใบ (ไม่ใช่การโจมตี · ป้องกันไม่ได้)<br><b>ป้องกัน:</b> ทิ้งใบนี้จากมือเพื่อไม่โดนการโจมตี จั่ว 1 ใบ และผู้โจมตีรับ 6 ดาเมจ',
   play: async p => { const t = await pickTarget(p, opps(p), { label:'The Balanced Breakfast: เลือกศัตรู' });
-    if (t.hand.length) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c); log(`${t.name} ทิ้ง ${cn(c)} (สุ่ม)`); } },
+    if (t.hand.length) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c); showRandDiscard(t, [c]); log(`${t.name} ทิ้ง ${cn(c)} (สุ่ม)`); } },
   onDefend: async (t, src) => { await draw(t, 1); if (src) await damage(src, 6, t); } });
 fam('scaredstiff', { power:1, name:'The Petrified Social Club', alsoType:'location', ongoing:1, def:1, defDiscard:1,
   text:'+1 ทอง<br><b>ต่อเนื่อง:</b> ใบนี้นับเป็น Dead Wizard Token 2 อัน (ไม่หัก VP)<br><b>ป้องกัน:</b> ทิ้งใบนี้จากมือเพื่อไม่โดนการโจมตี จั่ว 1 ใบ แล้วสุ่มเปิด Dead Wizard Token 1 อันจากกอง ใช้ผลของ Token นั้นกับผู้โจมตีได้ (เขาไม่ได้รับ Token)',
@@ -2590,19 +2608,26 @@ const TRAITS = [
     actText:'จ่าย 3 HP จั่ว 1', canActivate: p => p.hp >= 4, aiUse: p => p.hp > 10,
     activate: async p => { await loseHP(p, 3); await draw(p, 1); } },
   { id:'creatureHeal', name:'พลังชีวิตสัตว์อสูร', text:'ทุกครั้งที่คุณลงสัตว์อสูรในเทิร์นคุณ ฟื้น HP เท่ากับ VP ของใบนั้น',
-    onCardPlayed: async (p, c) => { if (isType(c, 'creature')) { const n = vpOf(c, p); if (n > 0) heal(p, n); } } },
+    onCardPlayed: async (p, c) => { if (isType(c, 'creature')) { const n = Math.floor(vpOf(c, p)); if (n > 0) heal(p, n); } } },
   { id:'variety', name:'ครบเครื่อง', text:'ถ้าเทิร์นนี้คุณลงการ์ดต่างประเภทกันครบ 4 ประเภทขึ้นไป +1 ทอง และจั่ว 1 ใบ (เทิร์นละครั้ง)',
     onCardPlayed: async p => {
       if (G.turn.varietyDone || TRAIT_TYPES.filter(t => G.turn.types[t]).length < 4) return;
       G.turn.varietyDone = true; P(p, 1); await draw(p, 1); log(`${p.name} ลงการ์ดครบ 4 ประเภท: +1 ทอง จั่ว 1`, 'good');
     } },
   { id:'cheapTop', name:'นักล่าของถูก', text:'การ์ดราคา 4 หรือต่ำกว่าที่ซื้อหรือได้จาก Line-Up นำไปวางบนสุดของเด็คแทนกองทิ้ง' },
-  { id:'spellPeek', name:'ตาทิพย์', text:'ทุกครั้งที่คุณลงคาถาในเทิร์นคุณ ดูการ์ดใบบนสุดของเด็ค แล้วเลือกทิ้งได้',
-    onCardPlayed: async (p, c) => {
-      if (!isType(c, 'spell')) return;
-      const top = drawTop(p); if (!top) return;
-      const yes = p.isAI ? isJunk(p)(top) : await humanChoose(p, `ตาทิพย์: ทิ้ง ${cn(top)}?`, [{ label: 'ทิ้ง', value: true }, { label: 'เก็บไว้บนเด็ค', value: false, ghost: true }], cardHTML(top, { small: true }));
-      if (yes) { p.discard.push(top); log(`${p.name} ทิ้ง ${cn(top)} จากบนเด็ค`); } else p.deck.push(top);
+  { id:'spellPeek', name:'ตาทิพย์', text:'ต้นเทิร์นคุณ ดูการ์ดใบบนสุดของเด็คใครก็ได้ 2 คน แล้วเลือกทิ้งได้',
+    onTurnStart: async p => {
+      const pool = G.players.filter(t => t !== G.optOut);
+      for (let i = 0; i < 2 && pool.length; i++) {
+        const others = pool.filter(t => t !== p);
+        const t = p.isAI ? (pool.includes(p) ? p : others[rnd(others.length)])
+          : pool.length === 1 ? pool[0] : await humanChoose(p, `ตาทิพย์: ดูเด็คของใคร? (${i + 1}/2)`, pool.map(x => ({ label: x === p ? 'ตัวคุณเอง' : x.name, value: x })));
+        pool.splice(pool.indexOf(t), 1);
+        const top = drawTop(t); if (!top) continue;
+        const yes = p.isAI ? (t === p ? isJunk(p)(top) : !isJunk(t)(top) && (top.cost || 0) >= 3)
+          : await humanChoose(p, `ตาทิพย์: ทิ้ง ${cn(top)} ของ ${t === p ? 'คุณ' : t.name}?`, [{ label: 'ทิ้ง', value: true }, { label: 'เก็บไว้บนเด็ค', value: false, ghost: true }], cardHTML(top, { small: true }));
+        if (yes) { t.discard.push(top); log(`${p.name} ทิ้ง ${cn(top)} จากบนเด็คของ ${t.name}`); } else { t.deck.push(top); log(`${p.name} ดูการ์ดบนเด็คของ ${t.name}`); }
+      }
     } },
   { id:'pairs', name:'คู่หู', text:'ถ้าเทิร์นนี้ลงพ่อมดชื่อต่างกัน 2 ใบขึ้นไป +2 ทอง · ถ้าลงสัตว์อสูรชื่อต่างกัน 2 ใบขึ้นไป +2 ทอง (ได้ทั้งสองอย่าง)',
     onCardPlayed: async p => {
@@ -2620,18 +2645,21 @@ const TRAITS = [
         : await humanChoose(p, 'สมบัติชิ้นที่สอง: วางการ์ดจากกองทิ้งบนเด็ค?', [...p.discard.map(x => ({ card: x, value: x })), { label: 'ไม่', value: null, ghost: true }]);
       if (pick) { p.discard.splice(p.discard.indexOf(pick), 1); p.deck.push(pick); log(`${p.name} วาง ${pick.name} บนสุดของเด็ค`); }
     } },
-  { id:'thief', name:'นักล้วงเด็ค', text:'✲ เปิดใช้ (เทิร์นละครั้ง): ถ้าคุณลงพ่อมดหรือคาถารวม 2 ใบขึ้นไป เล่นการ์ดใบบนสุดของเด็คเป้าหมาย แล้วนำใบนั้นลงกองทิ้งของเขา',
+  { id:'thief', name:'นักล้วงเด็ค', text:'✲ เปิดใช้ (เทิร์นละครั้ง): ถ้าคุณลงพ่อมดหรือคาถารวม 2 ใบขึ้นไป เล่นการ์ดใบบนสุดของเด็คเป้าหมาย แล้ววางใบนั้นกลับบนสุดของเด็คเขา',
     actText:'ล้วงเด็คศัตรู', canActivate: p => inPlay(p).filter(c => isType(c, 'wizard') || isType(c, 'spell')).length >= 2, aiUse: () => true,
     activate: async p => {
       const t = await pickTarget(p, opps(p), { label: 'นักล้วงเด็ค: เลือกศัตรู' });
       const c = drawTop(t); if (!c) { log(`${t.name} ไม่มีการ์ดในเด็ค`); return; }
       log(`${p.name} ล้วง ${cn(c)} จากเด็คของ ${t.name} มาใช้`, 'sys');
       await playCard(p, c, { fromOther: t });
+      // playCard leaves it in the owner's discard pile (a Wild Surge in its stack): it goes back on top of their deck
+      const i = t.discard.lastIndexOf(c);
+      if (i >= 0) { t.discard.splice(i, 1); t.deck.push(c); } else if (c.id === 'wild') { G.wild--; t.deck.push(c); }
     } },
   { id:'weirdWand', name:'ไม้กายสิทธิ์ประหลาด', text:'เริ่มเกม: Rune 1 ใบในเด็คเริ่มต้นเปลี่ยนเป็น Weird Wand · การ์ดชื่อ “Wand” ของคุณ +1 ดาเมจ และป้องกันไม่ได้' },
   { id:'spellDraw', name:'นักสะสมคาถา', text:'ตอนจบเทิร์น จั่วเพิ่ม 1 ใบ ต่อคาถาที่ซื้อหรือได้มาในเทิร์นนี้' },
-  { id:'creatureTop', name:'ผู้ให้อาหารสัตว์อสูร', text:'เมื่อคุณได้สัตว์อสูรมา เลือกวางบนสุดของเด็คได้' },
-  { id:'treasureLover', name:'นักล่าสมบัติ', text:'ซื้อสมบัติถูกลง 1 · จบเกม: สมบัติของคุณได้ +1 VP ต่อใบ' },
+  { id:'creatureTop', name:'ผู้ให้อาหารสัตว์อสูร', text:'ซื้อสัตว์อสูรถูกลง 1 · จบเกม: สัตว์อสูรของคุณได้ +0.5 VP ต่อใบ' },
+  { id:'treasureLover', name:'นักล่าสมบัติ', text:'ซื้อสมบัติถูกลง 1 · จบเกม: สมบัติของคุณได้ +0.5 VP ต่อใบ' },
 ];
 // Dead Wizard tokens (sets 1 + 2, 2026-10-10). One of each; the pile takes 5 per player at random from both sets.
 // vp: end-of-game VP (default -3). now(t, killer): when gained. ongoing:1 + text "ต่อเนื่อง: …" for lasting ones.
@@ -2668,7 +2696,7 @@ const TOKENS = [
     now: async t => { if (!t.hand.length) return; const c = t.hand.splice(rnd(t.hand.length), 1)[0]; G.destroyed.push(c); showRandDestroy(t, c, 'ในมือ'); log(`${t.name} เสีย ${cn(c)} (สุ่มทำลาย)`, 'dmg'); } },
   { id:'discard3', name:'ทิ้ง 3 ใบ', text:'ทิ้งการ์ดในมือ 3 ใบ (เลือกเอง)', now: async t => discardFromHand(t, 3) },
   { id:'discardRand2', name:'ทิ้งสุ่ม 2 ใบ', text:'ทิ้งการ์ดในมือแบบสุ่ม 2 ใบ',
-    now: async t => { for (let i = 0; i < 2 && t.hand.length; i++) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c); log(`${t.name} ทิ้ง ${cn(c)} (สุ่ม)`); } } },
+    now: async t => { const gone = []; for (let i = 0; i < 2 && t.hand.length; i++) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c); gone.push(c); log(`${t.name} ทิ้ง ${cn(c)} (สุ่ม)`); } showRandDiscard(t, gone); } },
   { id:'wandweak', name:'แพ้ Wand', ongoing:1, text:'ต่อเนื่อง: คุณรับดาเมจเพิ่ม 3 จากการโจมตีของการ์ด Wand (การ์ดเริ่มต้น)' },
   { id:'revenge8', name:'ย้อนศร 8 ดาเมจ', text:'คนที่ฆ่าคุณรับ 8 ดาเมจ (ตายจากตำนาน/โกลาหล ไม่มีผล · ฆ่าตัวเอง คุณโดนเอง)',
     now: async (t, k) => { if (!k) return; log(`ย้อนศร! ${k.name} รับ 8 ดาเมจ`, 'dmg'); await damage(k, 8, k === t ? null : t); } },
@@ -2863,7 +2891,8 @@ const ownsViagrus = p => allCards(p).some(c => c.id === 'viagrus');
 // Limp Wands: +1 with Viagrus, -2 with the "Limp Wand 2 เท่า" token
 const limpVP = p => ownsViagrus(p) ? 1 : p.tokens.some(k => k.id === 'limpDouble') ? -2 : -1;
 const vpOf = (c, p) => (c.vpCalc ? c.vpCalc(p) : c.id === 'bent' ? limpVP(p) : c.vp)
-  + (p && isType(c, 'treasure') && hasTrait(p, 'treasureLover') ? 1 : 0); // ability: treasures +1 VP
+  + (p && isType(c, 'treasure') && hasTrait(p, 'treasureLover') ? .5 : 0) // ability: treasures +0.5 VP
+  + (p && isType(c, 'creature') && hasTrait(p, 'creatureTop') ? .5 : 0); // ability: creatures +0.5 VP
 // what a card would be worth to p if bought now (a vpCalc card counts itself once it's owned)
 const vpIfBought = (c, p) => c.vpCalc ? c.vpCalc(p) + (c.type === 'creature' ? 1 : 0) : c.vp;
 // a card p just bought or gained: on top of the deck if a Grabby Hands of Gimme is pending this turn, or a Legend with
@@ -2878,9 +2907,6 @@ async function placeGained(p, c) {
   }
   // ability: cheap Line-Up cards go on top of the deck (mandatory)
   else if (hasTrait(p, 'cheapTop') && G.gainSrc === 'lineup' && (c.cost || 0) <= 4) { p.deck.push(c); log(`${cn(c)} ไปอยู่บนสุดของเด็ค ${p.name} (ของถูกขึ้นเด็ค)`); }
-  // ability: a gained creature may go on top of the deck
-  else if (hasTrait(p, 'creatureTop') && isType(c, 'creature') && (p.isAI || await humanChoose(p, `วาง ${cn(c)} บนสุดของเด็ค?`,
-      [{ label: 'บนสุดของเด็ค', value: true }, { label: 'กองทิ้ง', value: false, ghost: true }]))) { p.deck.push(c); log(`${p.name} วาง ${cn(c)} บนสุดของเด็ค`); }
   else if (p === cur() && G.turn.topdeck > 0) { G.turn.topdeck--; p.deck.push(c); log(`${cn(c)} ถูกวางบนสุดของเด็ค ${p.name}`, 'good'); }
   else if (c.type === 'legend' && p.ongoing.some(o => o.id === 'giftshop') && (p.isAI || await humanChoose(p, `Gift Shop: วาง ${cn(c)} ไว้ที่ไหน?`,
       [{ label: 'บนสุดของเด็ค (จั่วได้รอบหน้า)', value: true }, { label: 'กองทิ้ง', value: false, ghost: true }]))) {
@@ -2899,6 +2925,7 @@ function costFor(p, c) {
   if (hasTrait(p, 'beast') && c.type === 'creature') k = Math.max(1, k - 1);
   if (hasTrait(p, 'hex') && c.id === 'wild') k = 2;
   if (hasTrait(p, 'treasureLover') && isType(c, 'treasure')) k = Math.max(0, k - 1); // ability: treasures 1 cheaper
+  if (hasTrait(p, 'creatureTop') && isType(c, 'creature')) k = Math.max(0, k - 1); // ability: creatures 1 cheaper
   // Dead Wizard tokens that make some card types cost 1 more ("wild" = Wild Surge)
   k += p.tokens.filter(t => t.costUp && t.costUp.some(ty => ty === 'wild' ? c.id === 'wild' : isType(c, ty))).length;
   // this-turn Legend discount (Mega-Merch T-Shirt); only for the player whose turn it is
@@ -3559,6 +3586,7 @@ const FX = (() => {
       const by = killer && killer !== t ? `โดย ${killer.name} · ` : '';
       return banner(`☠ ${t.name} ตาย!`, `${by}Dead Wizard Token: ${tok.name}`, 'kill', T(1500));
     },
+    finalRound(title, sub) { return banner('รอบสุดท้าย!', `${title} · ${sub}`, 'gold', T(2200)); },
     turn(p) {
       AUD.play(p === meP() ? 'turnMe' : 'turnAI');
       if (p.isAI || p !== meP()) { banner(`เทิร์นของ ${p.name}`, '', 'turn small', T(800)); return null; }
@@ -3858,7 +3886,7 @@ async function kill(t, killer, { tokenPick = 0 } = {}) {
   if (tok.now && receiver.discard.some(c => c.id === 'dogo')) log(`Doggo the Gloomy ยกเลิกผลของ Token “${tok.name}”`, 'good');
   else if (tok.now) await (swap ? tok.now(killer, null) : tok.now(t, killer));
   if (swap) await gainTopLegend(killer);
-  if (G.tokens.length === 0 && !G.ending) { G.ending = 'Dead Wizard Token หมดกอง'; log('Dead Wizard Token หมดแล้ว! เกมจะจบเมื่อจบเทิร์นนี้', 'sys'); }
+  if (G.tokens.length === 0 && !G.ending && !G.finalRound) { G.ending = 'Dead Wizard Token หมดกอง'; log('Dead Wizard Token หมดแล้ว! เล่นจนครบรอบแล้วเกมจบ', 'sys'); }
   render();
 }
 
@@ -4007,7 +4035,7 @@ async function buy(p, src, i) {
 async function refillLineup() {
   for (let i = 0; i < 5; i++) {
     while (!G.lineup[i]) {
-      if (!G.main.length) { G.ending = 'การ์ดในกองหลักไม่พอเติม Line-Up'; return; }
+      if (!G.main.length) { if (!G.finalRound) G.ending = 'การ์ดในกองหลักไม่พอเติม Line-Up'; return; }
       const c = G.main.pop();
       if (c.type === 'chaos') {
         G.curLabel = cn(c);
@@ -4028,10 +4056,11 @@ async function startTurn(p) {
   log(`เทิร์นของ ${p.name}`, 'turn');
   if (kept) log(`${p.name} มีทองเก็บไว้จากเทิร์นก่อน +${kept} ทอง`);
   render();
-  await refillLineup(); if (G.ending) return;
+  await refillLineup(); if (G.instantWinner) return;
   await FX.turn(p);
   for (const c of p.ongoing.slice()) if (c.onStart) { G.curLabel = cn(c); await c.onStart(p); }
   for (const k of p.tokens) if (k.start) await k.start(p);
+  for (const tr of traitsOf(p)) if (tr.onTurnStart) await tr.onTurnStart(p);
   if (standHolder() === p && !p.tokens.some(k => k.id === 'trophyless')) {
     G.curLabel = 'Squid Idol';
     log(`Squid Idol ของ ${p.name} ตื่นขึ้น!`, 'sys');
@@ -4078,7 +4107,7 @@ async function endTurn(p) {
   // refill empty Legend slots from the face-down stack; each new Legend's Group Attack hits everyone
   for (let i = 0; i < G.legendRow.length && !G.ending; i++) {
     if (G.legendRow[i]) continue;
-    if (!G.legends.length) { G.ending = 'ล้มตำนานครบทุกตนแล้ว'; break; }
+    if (!G.legends.length) { if (!G.finalRound) G.ending = 'ล้มตำนานครบทุกตนแล้ว'; break; }
     const L = G.legends.shift();
     G.legendRow[i] = L;
     G.curLabel = cn(L) + ' (Group Attack)';
@@ -4134,14 +4163,29 @@ function humanTurn() {
 
 async function runGame() {
   const myGame = G;
+  // the end of the game was triggered: play on until everyone has had the same number of turns (only an outright win stops at once)
+  const finalRound = async () => {
+    if (!G.ending || G.instantWinner) return;
+    G.finalRound = G.ending; G.ending = null;
+    const left = (G.firstSeat - G.cur - 1 + G.players.length) % G.players.length;
+    if (!left) return;
+    log(`${G.finalRound} · รอบสุดท้าย: เล่นต่ออีก ${left} คนให้ทุกคนได้เทิร์นเท่ากัน แล้วเกมจบ`, 'sys');
+    render(); await FX.finalRound(`เกมจบเพราะ${G.finalRound}`, `เล่นต่ออีก ${left} คนให้ทุกคนได้เทิร์นเท่ากัน`);
+  };
   while (G === myGame) {
     const p = cur();
     await startTurn(p);
     if (G !== myGame) return;
+    await finalRound(); // triggered at the start of this turn: the player still takes it
+    if (G !== myGame) return;
     if (!G.ending) { if (p.isAI) await aiTurn(p); else await humanTurn(p); }
     if (G !== myGame) return;
     await endTurn(p);
+    if (G !== myGame) return;
+    await finalRound();
+    if (G !== myGame) return;
     if (G.ending) return finish();
+    if (G.finalRound && (G.cur + 1) % G.players.length === G.firstSeat) { G.ending = G.finalRound; return finish(); }
     G.cur = (G.cur + 1) % G.players.length;
   }
 }
@@ -4225,7 +4269,7 @@ function newGame(name, nAI, more = []) {
   }
   G.main.push(...chaos); shuffle(G.main);
   players.forEach(p => { for (let k = 0; k < 5; k++) p.hand.push(p.deck.pop()); });
-  G.cur = rnd(players.length);
+  G.cur = G.firstSeat = rnd(players.length);
 }
 
 // guests = online players [{ name, peer }] (host only); they take the seats after yours
@@ -4265,6 +4309,7 @@ function showSetup(err = '') {
   $('#m-title').textContent = 'เข้าสู่สนามประลองเวท';
   $('#m-sub').innerHTML = (err ? `<span class="err">${escHTML(err)}</span><br>` : '') + 'พ่อมดทุกคนเริ่มที่ 20 HP · ซื้อการ์ด สร้างเด็ค ระเบิดศัตรู ล้มตำนาน แล้วเก็บ VP ให้มากที่สุด';
   $('#m-opts').innerHTML = `
+    ${TUT.seen() ? '' : '<button class="btn xl ts-tut" id="tut-go1">เพิ่งเล่นครั้งแรก? เริ่มสอนเล่น 3 นาที</button>'}
     <label class="fld ts-name" for="in-name">ชื่อพ่อมดของคุณ<input id="in-name" value="${escHTML(NET.savedName() || 'Grand Wizard')}" maxlength="20"></label>
     <div class="ts-grid">
       <section class="ts-card">
@@ -4278,7 +4323,7 @@ function showSetup(err = '') {
         <div class="ts-row"><button class="btn xl" id="host">สร้างห้อง</button><button class="btn ghost xl" id="join">เข้าห้องเพื่อน</button></div>
       </section>
     </div>
-    <div class="ts-foot"><button class="linkbtn" id="show-rules">อ่านกติกา</button></div>`;
+    <div class="ts-foot"><button class="linkbtn" id="tut-go">สอนเล่นสำหรับมือใหม่ (3 นาที)</button><button class="linkbtn" id="show-rules">อ่านกติกา</button></div>`;
   $('#m-opts').onclick = e => {
     const n = ($('#in-name') && $('#in-name').value.trim()) || 'Grand Wizard';
     if (e.target.id === 'go') {
@@ -4287,8 +4332,128 @@ function showSetup(err = '') {
     } else if (e.target.id === 'host') NET.createRoom(n);
     else if (e.target.id === 'join') { NET.name = n; NET.showJoin(''); }
     else if (e.target.id === 'show-rules') showRules(true);
+    else if (e.target.id === 'tut-go' || e.target.id === 'tut-go1') { NET.saveName(n); m.hidden = true; $('#m-opts').onclick = null; TUT.start(n); }
   };
 }
+
+/* ---------------- tutorial: one scripted game against a practice dummy; a coach bubble and a spotlight walk a new
+   player through it. Only the action the current step allows goes through (doAction asks TUT.ok); the rules are the
+   real game's. Leaving reloads the page, like "new game". A step: title, text(), target() → element to light up,
+   allow(action), done() → move on by itself (no done: a "ถัดไป" button). */
+const TUT = {
+  on: false, step: null, resolve: null,
+  seen() { try { return !!localStorage.getItem('sb-tutdone'); } catch { return true; } },
+  markSeen() { try { localStorage.setItem('sb-tutdone', '1'); } catch {} },
+  ok(a) { const s = TUT.step; if (s && s.allow && s.allow(a)) return true; TUT.nudge(); return false; },
+  nudge() { const el = $('#tut'); el.classList.remove('nudge'); void el.offsetWidth; el.classList.add('nudge'); },
+  // show the steps one after another; resolves after the last one
+  run(steps) { return new Promise(res => { TUT.queue = steps.slice(); TUT.resolve = res; TUT.advance(); }); },
+  advance() {
+    TUT.step = TUT.queue.shift() || null;
+    if (!TUT.step) { $('#tut').hidden = true; $('#tut-spot').hidden = true; const r = TUT.resolve; TUT.resolve = null; if (r) r(); return; }
+    TUT.draw();
+    TUT.enteredAt = performance.now();
+    TUT.tick();
+  },
+  draw() {
+    const s = TUT.step, el = $('#tut');
+    el.innerHTML = `<div class="tut-h"><b>${s.title}</b><button class="linkbtn" id="tut-quit">ออกจากการสอน</button></div>
+      <div class="tut-x">${s.text()}</div>
+      ${s.final ? '<button class="btn xl" id="tut-finish">เริ่มเล่นจริง</button>' : s.done ? '' : '<button class="btn" id="tut-next">ถัดไป</button>'}`;
+    el.hidden = false;
+  },
+  tick() {
+    if (!TUT.on || !TUT.step) return;
+    if (TUT.step.done && TUT.step.done()) return TUT.advance();
+    TUT.place();
+  },
+  // the spotlight follows its target; the bubble sits in the half of the screen the target is not in
+  place() {
+    const s = TUT.step, el = s.target && s.target(), spot = $('#tut-spot'), box = $('#tut');
+    let r = el && el.getBoundingClientRect();
+    // bring the target into view when the step starts (redraws can move it), then let the player scroll freely
+    if (r && performance.now() - TUT.enteredAt < 1500 && (r.top < 0 || r.bottom > innerHeight || r.left < 0 || r.right > innerWidth)) {
+      el.scrollIntoView({ block: 'center', inline: 'center' }); r = el.getBoundingClientRect();
+    }
+    spot.hidden = !r;
+    if (r) Object.assign(spot.style, { left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' });
+    const low = r ? r.top + r.height / 2 > innerHeight / 2 : !!s.top;
+    box.classList.toggle('at-top', low);
+  },
+  async start(name) {
+    TUT.on = true; statEvent('tutorial-start', 'เริ่มสอนเล่น');
+    newGame(name, 1); ME = 0; G.tutorial = true; G.cur = G.firstSeat = 0;
+    const me = G.players[0], d = G.players[1], study = { id: 'none', name: 'ศิษย์ฝึกหัด', text: 'ในเกมจริงคุณจะสุ่มได้ความสามารถพ่อมด 1 อย่าง' };
+    d.name = 'หุ่นฝึกซ้อม'; me.trait = { ...study }; d.trait = { ...study };
+    me.familiar = make('sprite'); d.familiar = make('golem');
+    G.main = G.main.filter(c => c.type !== 'chaos');
+    G.lineup = ['toad', 'ward', 'goblin', 'troll', 'scry'].map(make);
+    const hand = (p, ids) => { G.quietMoves = true; p.hand = ids.map(make); trackMoves(); G.quietMoves = false; }; // rigged: no "ได้รับ" pop-ups
+    const inHand = id => { const i = me.hand.findIndex(c => c.id === id); return i < 0 ? null : $(`.you [data-act="play"][data-i="${i}"]`); };
+    const playOf = (...ids) => a => a.act === 'play' && ids.includes((me.hand[+a.i] || {}).id);
+    const noDefences = () => { d.hand = []; };
+    if (!$('#tut')) document.body.insertAdjacentHTML('beforeend', '<div id="tut-spot" hidden></div><div id="tut" hidden role="status"></div>');
+    $('#tut').onclick = e => {
+      if (e.target.id === 'tut-next') TUT.advance();
+      if (e.target.id === 'tut-quit') { TUT.markSeen(); location.reload(); }
+      if (e.target.id === 'tut-finish') { TUT.markSeen(); statEvent('tutorial-finish', 'จบสอนเล่น'); location.reload(); }
+    };
+    setInterval(TUT.tick, 250);
+
+    // turn 1: gold, an attack, buying
+    hand(me, ['rune', 'rune', 'rune', 'wand', 'fizzle']); noDefences();
+    await startTurn(me); render();
+    const t1 = humanTurn(me);
+    await TUT.run([
+      { title: 'ยินดีต้อนรับสู่ Wizard Royale', top: 1, text: () => `การแข่งขันหาพ่อมดที่เก่งที่สุดในโลก เป้าหมายคือมี <b>VP มากที่สุดตอนจบเกม</b><br>เกมนี้จะพาคุณเล่นกับ${d.name} ทีละขั้น ใช้เวลาราว 3 นาที` },
+      { title: 'มือของคุณ', target: () => $('.you .hand-zone'), text: () => 'ทุกเทิร์นคุณถือการ์ด 5 ใบ เล่นการ์ดเพื่อเก็บ <b>ทอง</b> แล้วเอาทองไปซื้อการ์ดที่ดีกว่าเข้าเด็ค' },
+      { title: 'เก็บทอง', target: () => inHand('rune'), allow: playOf('rune'), done: () => G.turn.power >= 1, text: () => `คลิก <b>${cn(DEFS.rune)}</b> ในมือ การ์ดใบนี้ให้ +1 ทอง` },
+      { title: 'เก็บทองต่อ', target: () => inHand('rune'), allow: playOf('rune'), done: () => G.turn.power >= 3, text: () => `ตัวเลขทองอยู่ที่แถบของคุณ เล่น <b>${cn(DEFS.rune)}</b> ที่เหลือให้หมด` },
+      { title: 'โจมตี', target: () => inHand('wand'), allow: playOf('wand'), done: () => G.turn.played.some(c => c.id === 'wand'), text: () => `<b>${cn(DEFS.wand)}</b> ให้ +1 ทอง และโจมตีศัตรู 1 ดาเมจ ลองเล่นดู` },
+      { title: 'ซื้อการ์ด', target: () => { const i = G.lineup.findIndex(c => c && c.id === 'toad'); return i < 0 ? null : $(`[data-act="buy"][data-src="lineup"][data-i="${i}"]`); },
+        allow: a => a.act === 'buy' && a.src === 'lineup' && (G.lineup[+a.i] || {}).id === 'toad', done: () => !G.lineup.some(c => c && c.id === 'toad'),
+        text: () => `<b>Line-Up</b> คือร้านการ์ด เลขในวงกลมคือราคา การ์ดกรอบทองคือใบที่ซื้อได้<br>ซื้อ <b>${cn(DEFS.toad)}</b> (ราคา 3) การ์ดที่ซื้อจะเข้ากองทิ้ง แล้ววนกลับมาเมื่อเด็คหมด` },
+      { title: 'จบเทิร์น', target: () => $('[data-act="end"]'), allow: a => a.act === 'end', done: () => !G.endTurnResolve,
+        text: () => `${cn(DEFS.fizzle)} ไม่มีผลอะไร ไม่ต้องเล่นก็ได้ ทองที่เหลือเก็บข้ามเทิร์นได้บางส่วน<br>กด <b>จบเทิร์น</b> การ์ดทั้งหมดลงกองทิ้ง แล้วคุณจั่วใหม่ 5 ใบ` },
+    ]);
+    await t1; await endTurn(me);
+
+    // the dummy's turn: a defence
+    hand(me, ['ward', 'rune', 'rune', 'fizzle', 'rune']); G.cur = 1; await startTurn(d); render();
+    await TUT.run([
+      { title: 'การ์ดป้องกัน', target: () => $(`.you .hand-zone .card`), text: () => `ถึงเทิร์นของ${d.name} และมันกำลังจะโจมตีคุณ<br>การ์ดที่มีป้าย <b>ป้องกัน</b> เช่น ${cn(DEFS.ward)} ใช้จากมือตอนโดนโจมตีได้ โดยไม่ต้องรอเทิร์นตัวเอง` },
+    ]);
+    const hp0 = me.hp; hand(d, ['fireball']);
+    TUT.run([{ title: 'โดนโจมตี!', top: 1, done: () => false, text: () => `เลือก <b>${cn(DEFS.ward)}</b> เพื่อไม่โดนโจมตี หรือจะเลือกรับดาเมจก็ได้` }]);
+    await playCard(d, d.hand[0]);
+    TUT.step = null; TUT.queue = []; TUT.resolve = null;
+    await TUT.run([{ title: me.hp < hp0 ? 'โดนเข้าไปแล้ว' : 'ป้องกันสำเร็จ!', top: 1,
+      text: () => me.hp < hp0 ? `คุณเสีย ${hp0 - me.hp} HP เริ่มเกมทุกคนมี 20 HP ถ้า HP หมดคุณจะตาย` : 'คุณไม่เสีย HP เลย การ์ดป้องกันจึงมีประโยชน์มาก ลองเก็บไว้ในเด็คบ้าง' }]);
+    await endTurn(d);
+
+    // turn 2: a kill, a Token, a Legend
+    noDefences(); G.cur = 0; d.hp = 3; hand(me, ['fireball', 'stoverheated', 'lamps', 'torrent', 'rune']);
+    G.tokens.push({ id: 'plain', name: 'หลุมศพธรรมดา', text: 'ไม่มีผลเพิ่ม' }); // the next token: no side effect to explain
+    await startTurn(me); render();
+    const t2 = humanTurn(me);
+    TUT.run([
+      { title: 'ฆ่าศัตรู', target: () => inHand('fireball'), allow: playOf('fireball'), done: () => d.tokens.length > 0,
+        text: () => `${d.name} เหลือ ${d.hp} HP <b>${cn(DEFS.fireball)}</b> ทำ 3 ดาเมจกับคนทางซ้าย เล่นเลย` },
+      { title: 'Dead Wizard Token', target: () => $('.rival[data-pi="1"]'),
+        text: () => `คนที่ตายได้ <b>Dead Wizard Token</b> ส่วนใหญ่หัก 3 VP ตอนจบเกม บางอันมีผลเสียเพิ่ม<br>แล้วฟื้นกลับมาที่ 20 HP แต่การ์ดต่อเนื่องที่วางอยู่จะลงกองทิ้ง` },
+      { title: 'เก็บทองให้ถึง 8', target: () => $('.you .hand-zone'), allow: a => a.act === 'play', done: () => G.turn.power >= 8, text: () => 'ตาคุณยังไม่จบ เล่นการ์ดที่เหลือเก็บทองให้ถึง 8 เพื่อซื้อการ์ดใบใหญ่' },
+      { title: 'ซื้อตำนาน', target: () => $('[data-act="buy"][data-src="legend"][data-i="0"]'), allow: a => a.act === 'buy' && a.src === 'legend' && +a.i === 0, done: () => !G.legendRow[0],
+        text: () => `<b>ตำนาน</b> คือแหล่ง VP ก้อนใหญ่ ซื้อ <b>${cn(G.legendRow[0] || DEFS.willy)}</b><br>ตำนานใหม่ที่เปิดขึ้นมาตอนจบเทิร์น มักมี <b>Group Attack</b> โจมตีทุกคน` },
+      { title: 'ได้ตำนานแล้ว!', top: 1, done: () => !G.busy, text: () => 'คลิกซ้ายที่ใดก็ได้เพื่อปิดภาพการ์ด' },
+      { title: 'สัตว์รับใช้', target: () => $('[data-act="buy"][data-src="familiar"]'), text: () => 'ก่อนเริ่มเกมจริงคุณจะได้เลือกคู่หู 1 ตัว และได้ความสามารถพ่อมดแบบสุ่ม 1 อย่าง คู่หูมีแค่คุณที่ซื้อได้ เมื่อมีทองพอ' },
+      { title: 'อ่านการ์ด', top: 1, text: () => 'อยากอ่านการ์ดใบไหนเต็ม ๆ ให้<b>คลิกขวา</b>ที่การ์ด (บนมือถือแตะปุ่มซูมบนการ์ด) ส่วนกติกาทั้งหมดอยู่ที่ปุ่มฟันเฟืองมุมขวาบน' },
+      { title: 'เกมจบเมื่อไร', top: 1, final: 1, done: () => false,
+        text: () => `เมื่อ <b>Token หมดกอง</b> <b>เปิดตำนานใหม่ไม่ได้</b> หรือ <b>กองหลักไม่พอเติม Line-Up</b> ทุกคนเล่นต่อจนได้เทิร์นเท่ากันแล้วเกมจบ<br>คะแนน = VP บนการ์ด − Token − Limp Wand ใครมากสุดชนะ พร้อมแล้วใช่ไหม?` },
+    ]);
+    TUT.markSeen();
+    await t2;
+  },
+};
 
 // Rules page as an infographic: goal formula, setup tiles, turn flow, attack/defence, death loop, card types, game end.
 const RULES_HTML = `<div class="rules rg">
@@ -4365,6 +4530,7 @@ const RULES_HTML = `<div class="rules rg">
   <div class="rg-tile">🃏<div class="rg-lbl">กองหลักไม่พอเติม Line-Up</div></div>
   <div class="rg-tile">☠<div class="rg-lbl">Dead Wizard Token หมดกอง</div></div>
 </div>
+<div class="rg-note">เมื่อเงื่อนไขข้อใดเกิดขึ้น เล่นต่อจนครบรอบ ให้ทุกคนได้เทิร์นเท่ากัน แล้วเกมจึงจบ</div>
 
 <h3>วิธีเล่นในเกมนี้</h3>
 <div class="rg-how">
@@ -4445,21 +4611,27 @@ function showRandDestroy(t, c, from) {
   if (G.turn) (G.turn.randDestroyed ||= []).push(c.uid);
   showReveal([c], `${t.name} ถูกสุ่มทำลาย${from}: ${cn(c)}`);
 }
+// cards discarded at random: same idea, one captioned row; trackMoves then skips their plain "ทิ้ง" pop-up
+function showRandDiscard(t, cards, from = 'ในมือ') {
+  cards = cards.filter(Boolean); if (!cards.length) return;
+  if (G.turn) (G.turn.randDestroyed ||= []).push(...cards.map(c => c.uid));
+  showReveal(cards, `${t.name} ถูกสุ่มทิ้ง${from}: ${cards.map(c => cn(c)).join(', ')}`);
+}
 function showReveal(cards, label) {
   cards = (cards || []).filter(Boolean);
   if (!G || !G.turn || !cards.length) return;
   if (NET.role !== 'guest') for (const card of cards) (G.turn.events ||= []).push({ card, label, kind: 'reveal' });
-  if (NET.role === 'host') NET.fx('rev', [cards, label]);
+  if (NET.role === 'host' && !NET.tracking) NET.fx('rev', [cards, label]); // trackMoves rows are worked out by each guest itself
   if (AI_DELAY === 0) return; // test helpers / instant mode: record only
   REV.groups.push({ cards, label }); if (REV.groups.length > 3) REV.groups.shift();
   const el = $('#rev');
   el.innerHTML = REV.groups.map(g => `<div class="rev-group"><span class="ev-cap">${g.label}</span>
-    <div class="rev-cards">${g.cards.map(c => cardHTML(c, { noZoom: true, small: true })).join('')}</div></div>`).join('');
+    <div class="rev-cards${g.cards.length > 8 ? ' many' : ''}">${g.cards.map(c => cardHTML(c, { noZoom: true, small: true })).join('')}</div></div>`).join('');
   el.classList.remove('out'); el.hidden = false;
   clearTimeout(REV.timer);
   const n = REV.groups.reduce((s, g) => s + g.cards.length, 0);
   REV.timer = setTimeout(() => { el.classList.add('out'); REV.timer = setTimeout(() => { el.hidden = true; REV.groups = []; }, 300); },
-    Math.max(2600, 550 * n, AI_DELAY * 4));
+    Math.max(2600, Math.min(8000, 550 * n), AI_DELAY * 4));
 }
 
 // ---- card-move tracker ----
@@ -4488,7 +4660,7 @@ function trackMoves() {
 }
 function trackDiff(now, before) {
   const groups = new Map(); // same player + same kind of move → one event (e.g. a whole hand discarded)
-  const add = (key, card, label, kind) => { const g = groups.get(key); if (g) g.n++; else groups.set(key, { card, label, kind, n: 1 }); };
+  const add = (key, card, label, kind) => { const g = groups.get(key); if (g) g.cards.push(card); else groups.set(key, { key, cards: [card], label, kind }); };
   const shownU = new Set(((G.turn && G.turn.shown) || []).map(c => c.uid)), defU = new Set(((G.turn && G.turn.defUsed) || []).map(c => c.uid));
   for (const [uid, loc] of now) {
     const was = before.get(uid), p = loc.p;
@@ -4512,6 +4684,7 @@ function trackDiff(now, before) {
     if (to === 'played' || to === 'ongoing' && from === 'hand') continue;   // played: shown in the arena
     if (from === 'fam') { add(`g-${p.name}-${c.uid}`, c, `${p.name} ได้รับ`, 'gain'); continue; }                  // bought own familiar
     if (to === 'discard' && shownU.has(c.uid)) continue;                     // a played/stolen card going home
+    if (to === 'discard' && G.turn && (G.turn.randDestroyed || []).includes(uid)) continue; // already shown by showRandDiscard
     if (to === 'discard' && from === 'hand' && defU.has(c.uid)) continue; // already shown as a defence
     if (to === 'discard' && from === 'hand') add(`d-${p.name}`, c, `${p.name} ทิ้ง`, 'discard');
     else if (to === 'discard' && from === 'deck') add(`dd-${p.name}`, c, `${p.name} ทิ้งจากเด็ค`, 'discard');
@@ -4521,8 +4694,11 @@ function trackDiff(now, before) {
     // hand↔deck and deck→hand stay hidden
   }
   for (const g of groups.values()) {
-    if (g.label.endsWith('วางบนเด็ค') && g.n > 3) continue;                 // a reshuffle of the discard pile
-    showEvent(g.card, g.n > 1 ? `${g.label} ${g.n} ใบ` : g.label, g.kind);
+    const n = g.cards.length;
+    if (g.label.endsWith('วางบนเด็ค') && n > 3) continue;                    // a reshuffle of the discard pile
+    // several cards, or cards off the top of a deck nobody chose: a row showing exactly which ones
+    if (n > 1 || g.key.startsWith('dd-')) showReveal(g.cards, n > 1 ? `${g.label} ${n} ใบ` : `${g.label}: ${cn(g.cards[0])}`);
+    else showEvent(g.cards[0], g.label, g.kind);
   }
 }
 
@@ -4771,6 +4947,7 @@ function render() {
           <span>กองหลัก <b>${G.main.length}</b></span>
           <span>Limp Wand <b>${G.bent}</b></span>
           <span>Dead Wizard Token เหลือ <b>${G.tokens.length}</b></span>
+          ${G.finalRound ? '<span class="final-tag">รอบสุดท้าย</span>' : ''}
           <button class="linkbtn" data-act="view" data-what="destroyed">ถูกทำลาย (${G.destroyed.length})</button>
       </div></div>
       ${arena}
@@ -4801,6 +4978,7 @@ function render() {
   G.players.forEach(p => p.hitFlash = false);
   NET.dirty();
   if (!$('#viewer').hidden && viewerState && viewerState.what !== 'art') openViewer(viewerState.what, viewerState.p);
+  if (G.tutorial) TUT.tick();
 }
 
 /* ---------------- card viewer ---------------- */
@@ -4922,6 +5100,7 @@ document.addEventListener('click', async e => {
 // a turn action by player p: a click here, or (online, on the host) a message from that player's browser
 async function doAction(p, a) {
   if (!G || G.busy || G.over || cur() !== p || !G.endTurnResolve) return;
+  if (G.tutorial && !TUT.ok(a)) return;
   const act = a.act;
   G.busy = true;
   try {

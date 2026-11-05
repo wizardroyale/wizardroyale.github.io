@@ -95,7 +95,9 @@ Ignore stray lines like "ชุด 1" (left over from copy-paste). If the copies
 - Card pop-ups: `trackMoves()` (run by every `render()`) diffs where each card is and calls `showEvent(card, label, kind)` for public moves — received, passed between players, discarded, destroyed, taken from / put back from the discard — so new cards need nothing extra. Moves that are not a change of place (reveal, defend, ✲) call `showEvent` directly.
   An effect that **reveals** cards to everyone (a hand, several top cards of a deck) calls `showReveal(cards, label)`
   (e.g. `showReveal(t.hand, \`${t.name} เปิดมือ\`)`): one captioned row in the upper middle of every screen (online too, as fx `'rev'`).
+  Cards discarded or destroyed **at random** call `showRandDiscard(t, cards, from)` / `showRandDestroy(t, c, from)` so everyone sees which ones; `trackMoves` shows any other multi-card move or a blind discard off a deck as a row too (changed 2026-11-05).
   A single revealed card can use `showEvent(c, label, 'reveal')`; `revealTop(p)` already does. Draws and hand↔deck stay hidden; `G.quietMoves` silences end-of-turn cleanup.
+- Game end (changed 2026-11-05): `G.ending` set by a trigger moves to `G.finalRound` in `runGame`; play continues until the seat before `G.firstSeat` has finished, so everyone has equal turns, then `finish()`. Only `G.instantWinner` ends at once. New end triggers must check `!G.finalRound`.
 - `G.curCard` is the card whose `play` is resolving right now (null otherwise), so `attack` can tell which card attacked (e.g. `isWand` for The Dirty Wand).
 - Ongoing card reacting to its owner playing another card → `onCardPlayed: async (p, card) => …` (runs after that card resolves; `G.turn.types[type]` already counts it). Example: `tentakill`.
 - Art: every Chaos card shares one picture, `art/chaos.jpg` (`artKey()`; one entry in the in-game art editor).
@@ -133,6 +135,10 @@ draw snapshots the host sends, send their clicks back, and answer questions forw
 - A guest who drops becomes AI (`p.away`) until they rejoin (same tab or same name). If the host closes the page the room ends.
 - After changing turn flow, choices or `G` structure, also run the multi-tab check: host + 2 guests with `?net=bc`
   (`tools/online-test.js`, needs Node + Playwright), not only `simulate(3)`.
+
+## Tutorial (added 2026-11-05)
+
+`TUT` (below `showSetup`) runs one scripted game against a practice dummy on the real rules: `G.tutorial`, rigged hands and Line-Up, a coach bubble (`#tut`) and spotlight (`#tut-spot`). `doAction` only lets through what the current step's `allow` permits; the setup screen offers it (prominently until `sb-tutdone` is set). If you rename a card used there or change its numbers (rune, wand, fizzle, toad, ward, fireball, stoverheated, lamps, torrent, willy, sprite), check the step text still holds.
 
 ## Testing — keep it fast
 
