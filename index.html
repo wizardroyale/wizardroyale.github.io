@@ -4253,7 +4253,7 @@ function newGame(name, nAI, more = []) {
   const main = [];
   for (const [id, n] of Object.entries(MAIN)) for (let k = 0; k < n; k++) main.push(make(id));
   shuffle(main);
-  const nLeg = 15; // face-down Legend stack (any player count); the game ends when it runs out
+  const nLeg = 20; // face-down Legend stack (any player count); the game ends when it runs out
   // Dead Wizard tokens: each kind once, 5 per player drawn at random (5 players use 25 of the 38)
   const tokPool = shuffle(TOKENS.map(k => ({ ...k }))).slice(0, players.length * 5);
   G = { players, cur: 0, main, lineup: [null, null, null, null, null], wild: 16, bent: 16, destroyed: [], log: [],
