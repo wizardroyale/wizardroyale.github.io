@@ -4194,14 +4194,14 @@ function newGame(name, nAI, more = []) {
   uidc = 1;
   const traits = shuffle(TRAITS.slice()), fams = shuffle(FAMILIARS.slice());
   const aiNames = shuffle(['Morla the Moist', 'Quibb Tallhat', 'Snaggle Fenwick', 'Dame Gristle']);
-  const players = [];
+  const players = [], colors = shuffle(PLAYER_COLORS.slice()); // a different random colour for each player, every game
   for (let i = 0; i < humans.length + nAI; i++) {
     const deck = [];
     for (let k = 0; k < 6; k++) deck.push(make('rune'));
     deck.push(make('wand'));
     for (let k = 0; k < 3; k++) deck.push(make('fizzle'));
     const human = i < humans.length;
-    players.push({ name: human ? humans[i] : aiNames[i - humans.length], color: PLAYER_COLORS[i % PLAYER_COLORS.length], isAI: !human, hp: 20, deck: shuffle(deck), hand: [], discard: [], ongoing: [],
+    players.push({ name: human ? humans[i] : aiNames[i - humans.length], color: colors[i % colors.length], isAI: !human, hp: 20, deck: shuffle(deck), hand: [], discard: [], ongoing: [],
       tokens: [], trait: traits[i], famChoices: [make(fams[i * 2]), make(fams[i * 2 + 1])], familiar: null });
     players[i].famChoices.forEach(c => { c.owner = players[i]; }); // familiars remember their owner (Kraken Egg)
     if (players[i].trait.id === 'weirdWand') { const d = players[i].deck, r = d.findIndex(c => c.id === 'rune'); d[r] = make('weirdwand'); } // ability tile
