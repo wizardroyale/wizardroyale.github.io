@@ -207,6 +207,14 @@ button{font-family:inherit}
   55%{transform:translateY(4px) rotate(1deg) scale(1.03);opacity:1;filter:brightness(1.4);box-shadow:0 0 0 3px var(--gold),0 0 44px var(--band)}
   100%{transform:none;filter:none}}
 @media (prefers-reduced-motion:reduce){.arena .card.fresh{animation:none}}
+/* a new Line-Up card flies over from the main pile, face down, and turns over as it lands (animateLineup) */
+.market .card.refill{position:relative;z-index:40;pointer-events:none;animation:linein .7s cubic-bezier(.35,.35,.6,1) backwards}
+@keyframes linein{0%{transform:translate(var(--fx),var(--fy)) perspective(800px) rotateY(180deg) scale(.35);opacity:0;filter:brightness(.2)}
+  12%{opacity:1}
+  58%{transform:translate(0,-16px) perspective(800px) rotateY(90deg) scale(1.08);opacity:1;filter:brightness(.45)}
+  80%{transform:translate(0,0) perspective(800px) rotateY(-7deg) scale(1.06);filter:brightness(1.45);box-shadow:0 0 0 3px var(--gold),0 0 36px var(--gold)}
+  100%{transform:translate(0,0) perspective(800px) rotateY(0) scale(1);filter:none}}
+@media (prefers-reduced-motion:reduce){.market .card.refill{animation:none}}
 .arena-title{font-family:var(--f-display);font-size:22px;color:var(--gold);margin-bottom:8px}
 .arena-title span{font-family:var(--f-body);font-size:13px;color:var(--ink)}
 .rival .rname{display:flex;align-items:baseline;gap:8px}
@@ -4033,19 +4041,27 @@ async function buy(p, src, i) {
 
 /* ---------------- turn flow ---------------- */
 async function refillLineup() {
+  // one card at a time so each one flies out on its own, then a pause for the last to land (no pause when nothing moved)
+  let landing = false;
+  const land = async () => { if (landing) { landing = false; await sleep(Math.min(LINE_MS - LINE_GAP, AI_DELAY)); } };
   for (let i = 0; i < 5; i++) {
     while (!G.lineup[i]) {
-      if (!G.main.length) { if (!G.finalRound) G.ending = 'การ์ดในกองหลักไม่พอเติม Line-Up'; return; }
+      if (!G.main.length) { if (!G.finalRound) G.ending = 'การ์ดในกองหลักไม่พอเติม Line-Up'; await land(); return; }
       const c = G.main.pop();
       if (c.type === 'chaos') {
+        await land();
         G.curLabel = cn(c);
         log(`โกลาหล! ${cn(c)}: ${c.text.replace(/<[^>]+>/g, '')}`, 'sys');
         G.chaosShown = c; render(); AUD.play('chaos'); await FX.chaos(c);
         await c.chaos();
         G.destroyed.push(c); G.chaosShown = null;
-      } else G.lineup[i] = c;
+      } else {
+        G.lineup[i] = c;
+        if (AI_DELAY) { render(); AUD.play('draw'); landing = true; await sleep(LINE_GAP); }
+      }
     }
   }
+  await land();
 }
 
 async function startTurn(p) {
@@ -4944,7 +4960,7 @@ function render() {
         <div class="mgroup"><span class="cap">Wild Surge (${G.wild})</span>${wildHTML}</div>
       </div>
       <div class="boardbar">${arenaTitle}<div class="piles">
-          <span>กองหลัก <b>${G.main.length}</b></span>
+          <span class="main-pile">กองหลัก <b>${G.main.length}</b></span>
           <span>Limp Wand <b>${G.bent}</b></span>
           <span>Dead Wizard Token เหลือ <b>${G.tokens.length}</b></span>
           ${G.finalRound ? '<span class="final-tag">รอบสุดท้าย</span>' : ''}
@@ -4975,11 +4991,37 @@ function render() {
       </div>
     </section>`;
   boardEl.style.minHeight = keepH.h + 'px';
+  animateLineup();
   G.players.forEach(p => p.hitFlash = false);
   NET.dirty();
   if (!$('#viewer').hidden && viewerState && viewerState.what !== 'art') openViewer(viewerState.what, viewerState.p);
   if (G.tutorial) TUT.tick();
 }
+
+// Line-Up refill: render() compares each slot with the last render, so guests get this from their snapshots too. render()
+// also rebuilds the board, so a card in flight keeps its start time and carries on from there instead of restarting
+const LINE_MS = 700, LINE_GAP = 160;
+let lineSeen = [], lineStart = {}, lineLast = 0;
+function animateLineup() {
+  const now = performance.now(), pile = $('.main-pile');
+  G.lineup.forEach((c, i) => {
+    if (!c) return;
+    if (lineSeen[i] !== c.uid && AI_DELAY && pile) lineStart[c.uid] = lineLast = Math.max(now, lineLast + LINE_GAP);
+    const t = lineStart[c.uid];
+    if (t === undefined) return;
+    if (now - t >= LINE_MS) { delete lineStart[c.uid]; return; }
+    const el = $(`[data-src="lineup"][data-i="${i}"]`), a = pile.getBoundingClientRect(), b = el.getBoundingClientRect();
+    el.classList.add('refill');
+    el.style.setProperty('--fx', `${a.x + a.width / 2 - b.x - b.width / 2}px`);
+    el.style.setProperty('--fy', `${a.y + a.height / 2 - b.y - b.height / 2}px`);
+    el.style.animationDelay = `${t - now}ms`;
+  });
+  lineSeen = G.lineup.map(c => c && c.uid);
+}
+// landed: back to normal, so a card you can afford starts its usual glow
+document.addEventListener('animationend', e => {
+  if (e.animationName === 'linein') { e.target.classList.remove('refill'); e.target.style.animationDelay = ''; }
+});
 
 /* ---------------- card viewer ---------------- */
 let viewerState = null;

@@ -98,6 +98,7 @@ Ignore stray lines like "ชุด 1" (left over from copy-paste). If the copies
   Cards discarded or destroyed **at random** call `showRandDiscard(t, cards, from)` / `showRandDestroy(t, c, from)` so everyone sees which ones; `trackMoves` shows any other multi-card move or a blind discard off a deck as a row too (changed 2026-11-05).
   A single revealed card can use `showEvent(c, label, 'reveal')`; `revealTop(p)` already does. Draws and hand↔deck stay hidden; `G.quietMoves` silences end-of-turn cleanup.
 - Game end (changed 2026-11-05): `G.ending` set by a trigger moves to `G.finalRound` in `runGame`; play continues until the seat before `G.firstSeat` has finished, so everyone has equal turns, then `finish()`. Only `G.instantWinner` ends at once. New end triggers must check `!G.finalRound`.
+- Line-Up refill animation: `animateLineup()` (run by `render()`) flies any card new in its slot over from the main pile, so guests get it from snapshots too. `refillLineup()` fills one card at a time with short waits (none when `AI_DELAY` is 0).
 - `G.curCard` is the card whose `play` is resolving right now (null otherwise), so `attack` can tell which card attacked (e.g. `isWand` for The Dirty Wand).
 - Ongoing card reacting to its owner playing another card → `onCardPlayed: async (p, card) => …` (runs after that card resolves; `G.turn.types[type]` already counts it). Example: `tentakill`.
 - Art: every Chaos card shares one picture, `art/chaos.jpg` (`artKey()`; one entry in the in-game art editor).
