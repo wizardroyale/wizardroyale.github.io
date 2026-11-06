@@ -125,7 +125,12 @@ button{font-family:inherit}
 .ev-turn{border-top:1px solid var(--line);padding-top:10px}
 .ev-turn.now h4{color:var(--accent)}
 .ev-sub{font-size:11px;letter-spacing:.08em;color:var(--mute);margin:6px 0 4px}
-.boardbar .piles{margin:0 0 0 auto;justify-content:flex-end}
+.boardbar .piles{margin:0 0 0 auto;justify-content:flex-end;gap:6px 8px}
+.pile-chip,.piles .pile-chip{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:999px;background:linear-gradient(#2a1d34f2,#160e1cf2);
+  border:1px solid #c8a14a99;color:#f3e7cf;font-size:14px;font-weight:600;line-height:1.3}
+.pile-chip b,.piles .pile-chip b{color:var(--gold);font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+button.pile-chip{cursor:pointer}
+button.pile-chip:hover{border-color:var(--gold);background:linear-gradient(#3a2a44,#20142a)}
 /* "what happened" strip: each affected card with a coloured caption */
 .cards.events{gap:12px}
 .ev{display:flex;flex-direction:column;align-items:center;gap:4px}
@@ -657,6 +662,10 @@ table.score tr.win td{color:var(--gold);font-weight:700}
 .fx.storm-cv{left:0;top:0}
 .fx.chaos-show{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;pointer-events:auto;cursor:pointer;padding:16px}
 .chaos-show .cs-title{font-family:var(--f-display);font-size:clamp(40px,7vw,80px);line-height:1;color:#c27dff;text-shadow:0 0 30px #c27dff,0 4px 0 #000;animation:btitle .7s cubic-bezier(.2,1.4,.4,1) both}
+.chaos-fly{transform-origin:center}
+.chaos-fly .cs-card{zoom:var(--k,2)}
+.chaos-fly .card{box-shadow:0 0 0 2px #c27dff,0 0 40px #9b4dff}
+.market .card.t-chaos{width:var(--card-w);height:var(--card-h);aspect-ratio:auto;cursor:default}
 .chaos-show .cs-card{zoom:var(--k,2);animation:csin .8s cubic-bezier(.2,1.3,.4,1) both,csglow 1.2s ease-in-out .8s infinite}
 .chaos-show .cs-card .card{box-shadow:0 0 0 2px #c27dff,0 0 40px #9b4dff}
 @keyframes csin{from{transform:translateY(-60vh) rotate(-14deg);opacity:0}to{transform:none;opacity:1}}
@@ -1780,7 +1789,7 @@ def('chaosX', { name:'Chaos 29', type:'chaos', text:'พ่อมดทุกค
 def('chaosY', { name:'Chaos 30', type:'chaos', atk:1, text:'<b>โจมตี:</b> พ่อมดทุกคนได้ Limp Wand 1 ใบ วางไว้บนสุดของเด็ค',
   chaos: async by => {
     await attack(null, { to:'all', chaos:true, by, bentTop:true, dmgText:'ได้ Limp Wand วางบนสุดของเด็ค', dmg: t => {
-      if (G.bent > 0) { G.bent--; t.deck.push(make('bent')); log(`${t.name} ได้ Limp Wand บนสุดของเด็ค`, 'dmg'); AUD.play('curse'); FX.curse(t); }
+      t.deck.push(make('bent')); log(`${t.name} ได้ Limp Wand บนสุดของเด็ค`, 'dmg'); AUD.play('curse'); FX.curse(t);
       return 0;
     } });
   } });
@@ -1882,7 +1891,7 @@ def('chaos2T', { name:'Chaos 37', type:'chaos',
       if (handCost(t) === m) { log(`${t.name} ชนะ! จั่ว 2`, 'good'); await draw(t, 2); }
       else {   // a losing bettor: one random card from hand to the discard pile, a Limp Wand into hand instead
         if (t.hand.length) { const c = t.hand.splice(rnd(t.hand.length), 1)[0]; t.discard.push(c); showRandDiscard(t, [c]); log(`${t.name} แพ้ · สุ่มทิ้ง ${cn(c)}`, 'dmg'); }
-        if (G.bent > 0) { G.bent--; await toHand(t, make('bent')); log(`${t.name} รับ Limp Wand ใส่มือ`, 'dmg'); AUD.play('curse'); FX.curse(t); }
+        await toHand(t, make('bent')); log(`${t.name} รับ Limp Wand ใส่มือ`, 'dmg'); AUD.play('curse'); FX.curse(t);
       }
     }
     render();
@@ -2126,8 +2135,7 @@ def('limpwandlegend', { name:'The Floppiest Wand', type:'legend', alsoType:'trea
       for (let k = 0; k < 3; k++) {
         const inHand = p.hand.find(c => c.id === 'bent'), inDiscard = p.discard.find(c => c.id === 'bent');
         const opts = [...(inHand ? [{ label: 'จากมือคุณ', value: 'hand' }] : []), ...(inDiscard ? [{ label: 'จากกองทิ้งคุณ', value: 'discard' }] : []),
-          ...(G.bent > 0 ? [{ label: `จากกอง Limp Wand (${G.bent})`, value: 'stack' }] : [])];
-        if (!opts.length) break;
+          { label: 'จากกอง Limp Wand', value: 'stack' }];
         const from = p.isAI ? opts[0].value   // AI clears its own junk first
           : await humanChoose(p, `The Floppiest Wand: ให้ Limp Wand ${t.name} ใบที่ ${k + 1}/3`, [...opts, { label: 'พอแล้ว', value: null, ghost: true }]);
         if (!from) break;
@@ -2160,9 +2168,8 @@ def('pylon', { power:1, name:"Traffic Cone of Papa Skeleton", type:'legend', als
 def('viagrus', { power:1, name:'Stiffus the Unbending', type:'legend', alsoType:'wizard', cost:13, vp:5, ongoing:1,
   text:'+1 ทอง<br><b>ต่อเนื่อง:</b> ต้นเทิร์น เลือกรับ Limp Wand 1 ใบเข้ามือได้ · เมื่อคุณเล่น Limp Wand +3 ทอง<br><b>จบเกม:</b> Limp Wand ของคุณมีค่า +1 VP แทน -1', group:'—',
   onStart: async p => {
-    if (G.bent <= 0) return;
     const yes = p.isAI || await humanChoose(p, 'Viagrus: รับ Limp Wand เข้ามือไหม?', [{ label: 'รับ (+3 ทองเมื่อเล่น)', value: true }, { label: 'ไม่รับ', value: false, ghost: true }]);
-    if (yes) { G.bent--; p.hand.push(make('bent')); log(`${p.name} รับ Limp Wand เข้ามือ (Viagrus)`); }
+    if (yes) { p.hand.push(make('bent')); log(`${p.name} รับ Limp Wand เข้ามือ (Viagrus)`); }
   },
   onCardPlayed: async (p, card) => { if (card.id === 'bent') { P(p, 3); log('Viagrus: +3 ทอง'); } } });
 def('deathlunch', { power:1, name:'Doom Buffet!', type:'legend', alsoType:'spell', cost:14, vp:5,
@@ -2731,11 +2738,11 @@ const TOKENS = [
   // ---- set 2 (2026-10-10) ----
   { id:'limpDouble', name:'Limp Wand 2 เท่า', ongoing:1, text:'ต่อเนื่อง: จบเกม Limp Wand ของคุณหัก VP เป็น 2 เท่า (ใบละ -2)' },
   { id:'limp2bottom', name:'Limp Wand 2 ใบใต้เด็ค', text:'ได้ Limp Wand 2 ใบ วางใต้เด็ค',
-    now: async t => { for (let i = 0; i < 2 && G.bent > 0; i++) { G.bent--; t.deck.unshift(make('bent')); } log(`${t.name} ได้ Limp Wand ใต้เด็ค`, 'dmg'); } },
+    now: async t => { for (let i = 0; i < 2; i++) t.deck.unshift(make('bent')); log(`${t.name} ได้ Limp Wand ใต้เด็ค`, 'dmg'); } },
   { id:'limpPerLegend', name:'Limp Wand ต่อตำนาน', text:'ได้ Limp Wand 1 ใบ ต่อตำนานแต่ละใบในกองทิ้งของคุณ',
     now: async t => { const n = t.discard.filter(c => c.type === 'legend').length; for (let i = 0; i < n; i++) gainBent(t); } },
   { id:'limpTop', name:'Limp Wand บนเด็ค', text:'ได้ Limp Wand 1 ใบ วางบนสุดของเด็ค',
-    now: async t => { if (G.bent > 0) { G.bent--; t.deck.push(make('bent')); log(`${t.name} ได้ Limp Wand บนสุดของเด็ค`, 'dmg'); } } },
+    now: async t => { t.deck.push(make('bent')); log(`${t.name} ได้ Limp Wand บนสุดของเด็ค`, 'dmg'); } },
   { id:'wand4', name:'Wand +4', vp:-7, ongoing:1, text:'ต่อเนื่อง: การ์ดชื่อ “Wand” ของคุณที่ทำดาเมจ ทำเพิ่มอีก 4 (Token นี้ -7 VP)' },
   { id:'pairA', name:'คู่หักล้าง (A)', vp:-8, text:'จบเกม: ถ้าคุณมี Token “คู่หักล้าง” ครบทั้ง 2 อัน ทำลายทั้งคู่ (ไม่หัก VP) · มีอันเดียว -8 VP' },
   { id:'pairB', name:'คู่หักล้าง (B)', vp:-8, text:'จบเกม: ถ้าคุณมี Token “คู่หักล้าง” ครบทั้ง 2 อัน ทำลายทั้งคู่ (ไม่หัก VP) · มีอันเดียว -8 VP' },
@@ -2884,8 +2891,7 @@ function heal(p, n) {
   if (p.hp > b) { log(`${p.name} ฟื้น ${p.hp - b} HP (${p.hp})`, 'good'); AUD.play('heal'); FX.heal(p, p.hp - b); }
 }
 function gainBent(t) {
-  if (G.bent <= 0) return;
-  const b = make('bent'); G.bent--; t.discard.push(b); log(`${t.name} ได้รับ Limp Wand`, 'dmg');
+  const b = make('bent'); t.discard.push(b); log(`${t.name} ได้รับ Limp Wand`, 'dmg');
   AUD.play('curse'); FX.curse(t);
 }
 // cards marked unique:1 — each player may own at most one copy
@@ -3294,6 +3300,8 @@ const FX = (() => {
   // attack shots (FX.strike, windup, bolt) run slower than the other effects so they can be followed by eye
   const ATK_SLOW = 1.7, TA = ms => T(ms * ATK_SLOW);
   const px = v => typeof v === 'number' ? v + 'px' : v;
+  let chaosOpen = null; // resolves when this screen's Chaos showcase is closed
+  const chaosZoom = () => Math.max(1.2, Math.min(2.4, innerHeight * .55 / 190, innerWidth * .8 / 132)).toFixed(2);
   function spawn(cls, x, y, text) {
     const el = document.createElement('div');
     el.className = 'fx ' + cls; el.style.left = px(x); el.style.top = px(y);
@@ -3643,8 +3651,9 @@ const FX = (() => {
       shake(12);
       const box = spawn('chaos-show', 0, 0);
       box.innerHTML = `<div class="cs-title">โกลาหล!</div><div class="cs-card">${cardHTML(c, { noZoom: true })}</div><div class="cs-hint">คลิกซ้ายที่ใดก็ได้เพื่อปิด</div>`;
-      box.querySelector('.cs-card').style.setProperty('--k', Math.max(1.2, Math.min(2.4, innerHeight * .55 / 190, innerWidth * .8 / 132)).toFixed(2));
-      await new Promise(r => box.addEventListener('pointerdown', e => { if (e.button === 0) r(); }));
+      box.querySelector('.cs-card').style.setProperty('--k', chaosZoom());
+      chaosOpen = new Promise(r => box.addEventListener('pointerdown', e => { if (e.button === 0) r(); }));
+      await chaosOpen;
       stopStorm();
       for (const el of [sky, box]) {
         el.style.pointerEvents = 'none';
@@ -3652,6 +3661,28 @@ const FX = (() => {
         setTimeout(() => el.remove(), 900);
       }
       await sleep(250);
+    },
+    // the closed Chaos card shrinks away into the destroyed pile. A guest may still have the showcase open when the
+    // host's game moves on, so each screen waits for its own click
+    async chaosToPile(c) {
+      await chaosOpen;
+      const to = $('[data-what="destroyed"]');
+      if (RM.matches || !to) { AUD.local('destroy'); return; }
+      const el = spawn('chaos-fly', 0, 0);
+      el.innerHTML = `<div class="cs-card" style="--k:${chaosZoom()}">${cardHTML(c, { noZoom: true })}</div>`;
+      const a = el.getBoundingClientRect(), b = to.getBoundingClientRect(), dur = T(800);
+      const x0 = (innerWidth - a.width) / 2, y0 = (innerHeight - a.height) / 2;
+      const x1 = b.x + b.width / 2 - a.width / 2, y1 = b.y + b.height / 2 - a.height / 2;
+      fire(el, [{ transform: `translate(${x0}px,${y0}px) scale(1) rotate(0)` },
+        { transform: `translate(${x0}px,${y0 - 14}px) scale(.94) rotate(-4deg)`, offset: .22 },
+        { transform: `translate(${x1}px,${y1}px) scale(.05) rotate(20deg)`, opacity: .5 }], { duration: dur, easing: 'ease-in' });
+      await sleep(dur);
+      AUD.local('destroy');
+      const pile = $('[data-what="destroyed"]');
+      if (!pile) return;
+      sparks(b.x + b.width / 2, b.y + b.height / 2, '#c27dff', 14, 60, 7);
+      pile.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.3)', color: '#c27dff' }, { transform: 'scale(1)' }], { duration: T(450) });
+      await sleep(T(250));
     },
     victory(win, name) {
       banner(win ? 'ชัยชนะ!' : `${name} ชนะ`, win ? 'คุณคือจอมเวทสูงสุดแห่งสนามประลอง' : 'สนามประลองยังรอการล้างแค้น', win ? 'win' : 'lose', 3200);
@@ -4052,9 +4083,14 @@ async function refillLineup() {
         await land();
         G.curLabel = cn(c);
         log(`โกลาหล! ${cn(c)}: ${c.text.replace(/<[^>]+>/g, '')}`, 'sys');
-        G.chaosShown = c; render(); AUD.play('chaos'); await FX.chaos(c);
+        // it lands in the Line-Up like any card, then the big showcase; closing that sends it to the destroyed pile,
+        // and only then does it take effect (a Chaos card that recasts destroyed ones skips its own id)
+        G.lineup[i] = c;
+        if (AI_DELAY) { render(); AUD.play('draw'); await sleep(LINE_MS + 450); }
+        AUD.play('chaos'); await FX.chaos(c);
+        G.lineup[i] = null; G.destroyed.push(c);
+        render(); await FX.chaosToPile(c);
         await c.chaos();
-        G.destroyed.push(c); G.chaosShown = null;
       } else {
         G.lineup[i] = c;
         if (AI_DELAY) { render(); AUD.play('draw'); landing = true; await sleep(LINE_GAP); }
@@ -4272,7 +4308,7 @@ function newGame(name, nAI, more = []) {
   const nLeg = 20; // face-down Legend stack (any player count); the game ends when it runs out
   // Dead Wizard tokens: each kind once, 5 per player drawn at random (5 players use 25 of the 38)
   const tokPool = shuffle(TOKENS.map(k => ({ ...k }))).slice(0, players.length * 5);
-  G = { players, cur: 0, main, lineup: [null, null, null, null, null], wild: 16, bent: 16, destroyed: [], log: [],
+  G = { players, cur: 0, main, lineup: [null, null, null, null, null], wild: 16, destroyed: [], log: [],
     // Legendary Line-Up: 3 face-up Legends to buy (Willy always among them) over a face-down stack
     legendRow: null, legends: shuffle(LEGENDS.slice()).slice(0, nLeg + 2).map(make),
     tokens: shuffle(tokPool), trophy: null, turn: { power: 0, played: [], shown: [], types: {} }, ending: null, busy: false, curLabel: '' };
@@ -4899,8 +4935,8 @@ function render() {
   const legendHTML = `<div class="cards">${G.legendRow.map((L, i) => L
     ? cardHTML(L, { cost: costFor(me, L), buy: myTurn && canOwn(me, L) && costFor(me, L) <= pw, attrs: `data-act="buy" data-src="legend" data-i="${i}"` })
     : `<div class="card back">${G.legends.length ? 'ตำนานใหม่<br>เปิดตอนจบเทิร์น' : 'ไม่มีตำนานเหลือ'}</div>`).join('')}</div>`;
-  const lineup = G.lineup.map((c, i) => c
-    ? cardHTML(c, { cost: costFor(me, c), buy: myTurn && canOwn(me, c) && costFor(me, c) <= pw, attrs: `data-act="buy" data-src="lineup" data-i="${i}"` })
+  const lineup = G.lineup.map((c, i) => c && c.type === 'chaos' ? cardHTML(c, { attrs: `data-src="lineup" data-i="${i}"` }) // just revealed: not for sale
+    : c ? cardHTML(c, { cost: costFor(me, c), buy: myTurn && canOwn(me, c) && costFor(me, c) <= pw, attrs: `data-act="buy" data-src="lineup" data-i="${i}"` })
     : `<div class="card back" style="opacity:.35">ว่าง</div>`).join('');
   const wildC = DEFS.wild;
   const wildHTML = G.wild > 0 ? cardHTML(wildC, { cost: costFor(me, wildC), buy: myTurn && costFor(me, wildC) <= pw, attrs: 'data-act="buy" data-src="wild"' }) : '<div class="card back">หมด</div>';
@@ -4960,11 +4996,10 @@ function render() {
         <div class="mgroup"><span class="cap">Wild Surge (${G.wild})</span>${wildHTML}</div>
       </div>
       <div class="boardbar">${arenaTitle}<div class="piles">
-          <span class="main-pile">กองหลัก <b>${G.main.length}</b></span>
-          <span>Limp Wand <b>${G.bent}</b></span>
-          <span>Dead Wizard Token เหลือ <b>${G.tokens.length}</b></span>
+          <span class="pile-chip main-pile">กองหลัก <b>${G.main.length}</b></span>
+          <span class="pile-chip">Dead Wizard Token <b>${G.tokens.length}</b></span>
           ${G.finalRound ? '<span class="final-tag">รอบสุดท้าย</span>' : ''}
-          <button class="linkbtn" data-act="view" data-what="destroyed">ถูกทำลาย (${G.destroyed.length})</button>
+          <button class="linkbtn pile-chip" data-act="view" data-what="destroyed">ถูกทำลาย <b>${G.destroyed.length}</b></button>
       </div></div>
       ${arena}
     </section>
