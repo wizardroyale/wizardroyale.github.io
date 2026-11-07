@@ -142,6 +142,10 @@ draw snapshots the host sends, send their clicks back, and answer questions forw
 
 `TUT` (below `showSetup`) runs one scripted game against a practice dummy on the real rules: `G.tutorial`, rigged hands and Line-Up, a coach bubble (`#tut`) and spotlight (`#tut-spot`). `doAction` only lets through what the current step's `allow` permits; the setup screen offers it (prominently until `sb-tutdone` is set). If you rename a card used there or change its numbers (rune, wand, fizzle, toad, ward, fireball, stoverheated, lamps, torrent, willy, sprite), check the step text still holds.
 
+## Lab prototype (added 2026-11-07)
+
+`lab.html` tests original core systems (Fusion, Hype, Scandals, Schools, Live Events, Sponsors, Misfire) on low-risk cards only; `ip-audit.md` lists why. Edit `tools/lab.js` and run `python3 tools/build-lab.py` to rebuild; never hand-edit `lab.html`. The build patches a copy of `index.html` and stops if a patch no longer matches. Offline only. Over ~512 KB the browser pane can't open it from `file:`, so serve a copy from the scratchpad. `await labSim(games, players, timeoutMs)` returns balance numbers.
+
 ## Testing — keep it fast
 
 The user noticed card additions taking too long, so match the test to the change. Open `index.html` in the
