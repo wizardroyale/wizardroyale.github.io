@@ -196,7 +196,7 @@ Which to run:
   (changed 2026-10-28). When pulling an `nt` edit, update `tools/names-th.json` **and** the `NAMES_TH` map in `index.html`
   (a copy of that file). New cards also get a Thai name in both. In game, players see `cn(c)` (Thai by default; setting
   "ชื่อการ์ด: ไทย / English", key `sb-thnames`); `c.name` stays English for logic (`isWand`, comparisons), so use
-  `${cn(c)}` in new log / choice / label text.
+  `${cn(c)}` in new log / choice / label text. A card named in such text uses `${cn(DEFS.<id>)}`, never a typed name, so renames can't leave an old name on screen.
   After adding pictures, read the artifact, add the ids to `IMGS`, and republish to the same url with
   `files: {"art/<id>.jpg": "art/<id>.jpg"}` for each new or replaced picture.
 - The user works on both Windows and macOS; `git pull` before editing.
